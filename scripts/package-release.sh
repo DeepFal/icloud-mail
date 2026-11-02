@@ -26,12 +26,14 @@ if [[ "$is_semver" == true ]]; then
         printf 'VERSION in %s does not match tag.\n' "$release_tag" >&2
         exit 1
     }
-    tag_app_image=$(git show "$release_tag:compose.offline.yaml" | awk '/^[[:space:]]+image:[[:space:]]*icloud-api:/ {print $2; exit}')
-    tag_database_image=$(git show "$release_tag:compose.offline.yaml" | awk '/^[[:space:]]+image:[[:space:]]*icloud-api-postgres:/ {print $2; exit}')
-    [[ "$tag_app_image" == "icloud-api:$release_tag" && "$tag_database_image" == "icloud-api-postgres:$release_tag" ]] || {
-        printf 'compose.offline.yaml image references do not match %s.\n' "$release_tag" >&2
-        exit 1
-    }
+    tag_offline=$(git show "$release_tag:compose.offline.yaml")
+    for image_name in icloud-mail icloud-mail-postgres; do
+        expected_reference='image: ghcr.io/deepfal/'"$image_name"':${ICLOUD_MAIL_VERSION:-'"$release_tag"'}'
+        [[ "$tag_offline" == *"$expected_reference"* ]] || {
+            printf 'compose.offline.yaml image references do not match %s.\n' "$release_tag" >&2
+            exit 1
+        }
+    done
 fi
 mkdir -p .local/releases
 exec 9>.local/project-heavy.lock
@@ -43,14 +45,15 @@ if (( available_kib < 2097152 )) || ! awk -v task_load="$load_one" 'BEGIN {exit 
     exit 1
 fi
 
-app_image="icloud-api:$release_tag"
-database_image="icloud-api-postgres:$release_tag"
+app_image="ghcr.io/deepfal/icloud-mail:$release_tag"
+database_image="ghcr.io/deepfal/icloud-mail-postgres:$release_tag"
 for image in "$app_image" "$database_image"; do
     [[ "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" == linux/amd64 ]]
     if [[ "$is_semver" == true ]]; then
         image_revision=$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
         image_version=$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.version"}}')
-        [[ "$image_revision" == "$commit" && "$image_version" == "$release_tag" ]] || {
+        image_source=$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.source"}}')
+        [[ "$image_revision" == "$commit" && "$image_version" == "$release_tag" && "$image_source" == https://github.com/DeepFal/icloud-mail ]] || {
             printf 'Image %s OCI labels do not match tag %s.\n' "$image" "$release_tag" >&2
             exit 1
         }

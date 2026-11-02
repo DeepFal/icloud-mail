@@ -45,10 +45,13 @@ iCloud 主号 INBOX
 git clone https://github.com/DeepFal/icloud-mail.git
 cd icloud-mail
 cp -n .env.example .env
-docker compose up -d --build --wait
+docker compose pull
+docker compose up -d --wait
 docker compose ps
 curl -fsS http://127.0.0.1:8788/healthz
 ```
+
+以上镜像安装使用 `.env` 的 `ICLOUD_MAIL_VERSION`（默认 `v0.2.9`）固定 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres`，需确认该版本已发布。首次发布前或需要从源码构建时，使用 [交付说明](../DELIVERY.md#源码构建安装推荐) 的 `compose.build.yaml` 命令。
 
 以上示例将 HTTP 发布在 `127.0.0.1:8788`，IMAPS 发布在 `127.0.0.1:1993`，管理入口为 `/admin/`。云服务器可通过 SSH 隧道访问，或按 [公网部署](PUBLIC.md) 配置 HTTPS 反向代理。首次启动会在 keys 卷中保存管理路径，并生成管理员密码、外部登记接口的 OAuth token、主密钥，以及本地持久化 IMAPS 自签证书。
 
@@ -362,10 +365,11 @@ docker compose start icloud-api
 
 不要执行 `docker compose down -v`。主密钥丢失后，Apple 会话与每个 alias 的完整凭证包都不能解密；mail archive 卷与数据库不匹配时，IMAPS 会将缺失内容降级为占位邮件。
 
-升级完成后执行：
+镜像安装升级时，先把 `.env` 中的 `ICLOUD_MAIL_VERSION` 改为已发布的目标版本，并移除或同步修改完整镜像覆盖项，再执行拉取与重建（详见 [交付说明](../DELIVERY.md#数据备份与更新)；源码构建和离线安装使用各自的覆盖文件）：
 
 ```bash
-docker compose up -d --build --wait
+docker compose pull
+docker compose up -d --wait
 docker compose ps
 curl -fsS http://127.0.0.1:8788/healthz
 docker compose exec -T icloud-api cat /app/keys/admin-path

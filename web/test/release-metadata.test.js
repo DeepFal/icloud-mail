@@ -18,8 +18,8 @@ test("release version matches package metadata and public documentation", async 
   assert.ok((await read("DELIVERY.md")).includes("`" + version + "`"));
   assert.ok((await read("CHANGELOG.md")).includes("## Unreleased"));
   const offline = await read("compose.offline.yaml");
-  assert.ok(offline.includes(`image: icloud-api:v${version}\n`));
-  assert.ok(offline.includes(`image: icloud-api-postgres:v${version}\n`));
+  assert.ok(offline.includes("image: ghcr.io/deepfal/icloud-mail:${ICLOUD_MAIL_VERSION:-v" + version + "}\n"));
+  assert.ok(offline.includes("image: ghcr.io/deepfal/icloud-mail-postgres:${ICLOUD_MAIL_VERSION:-v" + version + "}\n"));
 });
 
 test("DeepFal branding keeps license attribution in the legal notices", async () => {
@@ -37,16 +37,19 @@ test("DeepFal branding keeps license attribution in the legal notices", async ()
   assert.ok((await read("NOTICE.md")).includes("## 第三方参考与依赖"));
 });
 
-test("default deployment pulls GHCR latest while source builds stay opt-in", async () => {
+test("default deployment pins DeepFal releases while source builds stay opt-in", async () => {
+  const version = (await read("VERSION")).trim();
   const compose = await read("compose.yaml");
-  assert.ok(compose.includes("ghcr.io/deepfal/icloud-mail:latest"));
-  assert.ok(compose.includes("ghcr.io/deepfal/icloud-mail-postgres:latest"));
+  assert.ok(compose.includes("ghcr.io/deepfal/icloud-mail:${ICLOUD_MAIL_VERSION:-v" + version + "}"));
+  assert.ok(compose.includes("ghcr.io/deepfal/icloud-mail-postgres:${ICLOUD_MAIL_VERSION:-v" + version + "}"));
   assert.equal(compose.includes("    build:\n"), false);
   assert.equal((compose.match(/pull_policy: always/g) || []).length, 2);
+  assert.ok((await read(".env.example")).includes(`ICLOUD_MAIL_VERSION=v${version}\n`));
 
   const build = await read("compose.build.yaml");
-  assert.ok(build.includes("image: icloud-api:local"));
-  assert.ok(build.includes("image: icloud-api-postgres:local"));
+  assert.ok(build.includes("image: ghcr.io/deepfal/icloud-mail:${ICLOUD_MAIL_VERSION:-v" + version + "}"));
+  assert.ok(build.includes("image: ghcr.io/deepfal/icloud-mail-postgres:${ICLOUD_MAIL_VERSION:-v" + version + "}"));
+  assert.ok(build.includes("target: runtime"));
   assert.ok(build.includes("target: postgres-runtime"));
 
   const readme = await read("README.md");
@@ -58,8 +61,11 @@ test("default deployment pulls GHCR latest while source builds stay opt-in", asy
   assert.ok(workflow.includes("platforms: linux/amd64,linux/arm64"));
   assert.ok(workflow.includes("target: postgres-runtime"));
   assert.ok(workflow.includes("type=raw,value=latest"));
-  assert.ok(workflow.includes("${GITHUB_REPOSITORY_OWNER,,}"));
-  assert.ok(workflow.includes("steps.namespace.outputs.owner"));
+  assert.ok(workflow.includes("IMAGE_NAMESPACE: deepfal"));
+  assert.ok(workflow.includes("${{ env.IMAGE_NAMESPACE }}"));
+  assert.ok(workflow.includes("org.opencontainers.image.revision=${{ github.sha }}"));
+  assert.ok(workflow.includes("org.opencontainers.image.version=${{ github.ref_name }}"));
+  assert.ok(workflow.includes("org.opencontainers.image.source=https://github.com/DeepFal/icloud-mail"));
 });
 
 test("local links in release documentation resolve after reference extraction", async () => {

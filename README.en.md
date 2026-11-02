@@ -36,6 +36,8 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build --wait
 docker compose -f compose.yaml -f compose.build.yaml ps
 ```
 
+Once the target version is published to GHCR, you can use `ghcr.io/deepfal/icloud-mail` and `ghcr.io/deepfal/icloud-mail-postgres`: set `ICLOUD_MAIL_VERSION=v0.2.9` in `.env`, then run `docker compose pull` and `docker compose up -d --wait`. Both images use the same version. Use the source build above until the first image publication completes. OCI labels record the full commit, version, and source repository; see [DELIVERY.md](DELIVERY.md#ghcr-镜像) for verification.
+
 With the example configuration, the dashboard is at `http://127.0.0.1:8788/admin/` and the username is `admin`. The generated management path and password are stored in the container's keys volume:
 
 ```sh
@@ -52,6 +54,16 @@ ssh -N -L 127.0.0.1:8788:127.0.0.1:8788 USER@SERVER
 ```
 
 Back up the database, keys, and mail archive before updates; preserve `.env` and existing data volumes. See [DELIVERY.md](DELIVERY.md) and the [public deployment guide](docs/PUBLIC.md) for installation, backups, migration, and public HTTPS.
+
+To upgrade an image installation, change `ICLOUD_MAIL_VERSION` in `.env` to the published target version, then pull and recreate both services:
+
+```sh
+# First edit .env: ICLOUD_MAIL_VERSION=vX.Y.Z (use a published version)
+docker compose pull
+docker compose up -d
+```
+
+Remove or update any existing `ICLOUD_API_IMAGE` / `ICLOUD_API_POSTGRES_IMAGE` overrides first. Source-build update commands are in [DELIVERY.md](DELIVERY.md#数据备份与更新).
 
 ## API Example
 

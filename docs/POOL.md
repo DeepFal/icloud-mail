@@ -216,10 +216,13 @@ curl -X POST 'https://mail.example.com/ADMIN_PATH/api/v1/pool/aliases/batch/jobs
 ```sh
 # 在解压的项目目录中，首次安装先复制环境示例。
 cp -n .env.example .env
-docker compose up -d --build --wait
+docker compose pull
+docker compose up -d --wait
 docker compose ps
 curl -fsS http://127.0.0.1:8788/healthz
 ```
+
+以上命令使用 `.env` 的 `ICLOUD_MAIL_VERSION`（默认 `v0.2.9`），拉取 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres`。首次镜像发布前或需要从源码构建时，按 [交付说明](../DELIVERY.md) 显式合并 `compose.build.yaml`。
 
 新安装使用自己的 Web/API 域名，例如 `mail.example.com`。HTTPS 反向代理转发到 `127.0.0.1:8788`；公网启用 HTTPS Cookie。公开 IMAPS 使用独立域名及 TLS 证书，具体见 [公网部署](PUBLIC.md)。
 
@@ -232,7 +235,7 @@ docker compose exec -T icloud-api cat /app/keys/admin-password
 
 浏览器打开自己部署的 `https://mail.example.com/admin/`，用户名 `admin`。环境示例设置 `ICLOUD_API_ADMIN_PATH=/admin`，密码由首次启动独立生成。未配置公网域名时可使用 [交付说明](../DELIVERY.md) 中的 SSH 转发访问。
 
-数据库、keys 和 mail archive 共同组成恢复点，备份沿用主 README 的成组流程。新增 `pool_*` 表随 PostgreSQL 备份完整保存。开发分支为 `feature/mailbox-pool`，更新上游时保留此分支的本地修改并重新构建。
+数据库、keys 和 mail archive 共同组成恢复点，备份沿用 [交付说明](../DELIVERY.md#数据备份与更新) 的成组流程。新增 `pool_*` 表随 PostgreSQL 备份完整保存。镜像安装升级时修改 `.env` 的 `ICLOUD_MAIL_VERSION` 为已发布目标版本，再执行 `docker compose pull` 和 `docker compose up -d`；已有完整镜像覆盖项需同步处理。
 
 可运行 `sh scripts/backup-local.sh`，会短暂停止应用完成一致性备份，随后自动启动。输出位于 `.local/backups/UTC时间/`，包含 PostgreSQL、密钥、邮件正文、部署环境，以及存在时的公网 IMAPS 证书与校验文件。项目 Key 在自己安装的控制面板中创建和轮换。
 
