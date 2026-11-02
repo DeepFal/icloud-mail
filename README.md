@@ -36,6 +36,8 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build --wait
 docker compose -f compose.yaml -f compose.build.yaml ps
 ```
 
+如目标版本已在 GHCR 发布，也可使用 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres` 两个镜像：在 `.env` 设置 `ICLOUD_MAIL_VERSION=v0.2.9`，运行 `docker compose pull` 和 `docker compose up -d --wait`。两个镜像使用同一版本；首次发布完成前请使用上面的源码构建。镜像的 OCI 标签记录完整 commit、版本和源码仓库，核对方法见 [DELIVERY.md](DELIVERY.md#ghcr-镜像)。
+
 使用示例配置时，管理入口为 `http://127.0.0.1:8788/admin/`，用户名为 `admin`。首次启动生成的管理路径和密码保存在容器的 keys 卷中：
 
 ```sh
@@ -52,6 +54,16 @@ ssh -N -L 127.0.0.1:8788:127.0.0.1:8788 USER@SERVER
 ```
 
 升级前请备份数据库、密钥和邮件归档，保留 `.env` 与已有数据卷；安装、备份、迁移和公网 HTTPS 说明见 [DELIVERY.md](DELIVERY.md) 与 [公网部署指南](docs/PUBLIC.md)。
+
+镜像安装的升级流程为：修改 `.env` 中的 `ICLOUD_MAIL_VERSION` 为已发布的目标版本号，再拉取并重建两个服务：
+
+```sh
+# 先修改 .env：ICLOUD_MAIL_VERSION=vX.Y.Z（替换为已发布版本）
+docker compose pull
+docker compose up -d
+```
+
+已有 `ICLOUD_API_IMAGE` / `ICLOUD_API_POSTGRES_IMAGE` 覆盖项时，先移除或同步修改；源码构建安装的更新命令见 [DELIVERY.md](DELIVERY.md#数据备份与更新)。
 
 ## API 示例
 

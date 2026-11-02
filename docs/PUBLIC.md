@@ -9,11 +9,11 @@
 3. HTTPS 反向代理指向 `http://127.0.0.1:8788`。宝塔中的 SSL 证书用于 Web 代理；仅使用 HTTP API 时无需配置应用内 IMAPS 证书。
 4. 在 `.env` 设置 `ICLOUD_API_COOKIE_SECURE=true`，重建应用容器使设置生效。保持单实例。
 
-GHCR `latest` 安装：
+GHCR 固定版本安装使用 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres`。在 `.env` 设置 `ICLOUD_MAIL_VERSION=v0.2.9`（或其他已发布版本）；首次镜像发布完成前使用源码构建。升级 = 修改 `.env` 里的版本号 + `docker compose pull` + `docker compose up -d`，升级前按 [交付说明](../DELIVERY.md#数据备份与更新) 备份。已有完整镜像覆盖项需先移除或同步修改：
 
 ```sh
 docker compose pull
-docker compose up -d --no-deps --wait icloud-api
+docker compose up -d --wait
 ```
 
 源码构建安装：
@@ -87,7 +87,7 @@ openssl s_client -connect imap.example.com:993 \
 部分宝塔版本把 Docker 返回的多个配置路径当成一个文件名，出现 `[.../compose.yaml,.../compose.public.yaml] 文件不存在`。使用单文件入口可解决这个兼容问题：
 
 ```sh
-# 默认合并 GHCR latest 基础配置和公网证书挂载，保留环境变量占位符。
+# 默认合并 GHCR 固定版本基础配置和公网证书挂载，保留环境变量占位符。
 bash scripts/render-baota-compose.sh
 # 本地源码构建使用：
 # bash scripts/render-baota-compose.sh compose.yaml compose.build.yaml compose.public.yaml
@@ -98,12 +98,12 @@ bash scripts/render-baota-compose.sh
 在 `.env` 中将 `COMPOSE_FILE` 设置为 `compose.baota.yaml`，保留原来的 `COMPOSE_PROJECT_NAME`。初次切换需重建全部项目容器，Docker 才会更新宝塔读取的配置路径；会有短暂服务中断：
 
 ```sh
-docker compose stop icloud-api
 docker compose pull
+docker compose stop icloud-api
 docker compose up -d --force-recreate --wait --wait-timeout 120
 docker compose ls
 ```
 
-操作前确认镜像已成功拉取；需要回滚时在 `.env` 将镜像变量改为目标 digest。重建沿用原项目数据卷；`docker compose ls` 中本项目的 `ConfigFiles` 应只显示 `compose.baota.yaml` 的绝对路径。然后刷新宝塔容器编排页。
+停止服务前确认镜像已成功拉取；需要回滚时在 `.env` 将 `ICLOUD_MAIL_VERSION` 改为目标版本，或用两个完整镜像覆盖项分别固定 digest，并核对数据库恢复要求。重建沿用原项目数据卷；`docker compose ls` 中本项目的 `ConfigFiles` 应只显示 `compose.baota.yaml` 的绝对路径。然后刷新宝塔容器编排页。
 
 后续通过普通 `docker compose` 命令管理，避免再传多个 `-f`。更新基础编排或覆盖文件后，先重新运行生成命令，再部署；生成会覆盖在宝塔直接编辑的单文件内容。`compose.baota.yaml` 是本地生成文件，已排除版本控制。
