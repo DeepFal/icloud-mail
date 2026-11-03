@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter } from "vue-router";
 import { useAuth } from "../stores/auth.js";
+import "../styles/pages.css";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
 import { getMailboxProfile, getServices, saveMailboxNote, saveRegistration, removeRegistration, registrationStates, registrationLabel } from "./registry-api.js";
 const props = defineProps({ modelValue: Boolean, aliasId: { type: [Number, String], default: "" }, serviceId: { type: [Number, String], default: "" } });
@@ -74,68 +75,75 @@ watch(() => [props.modelValue, props.aliasId], () => { if (props.modelValue) loa
 onBeforeUnmount(() => { disposed = true; version++; controller?.abort(); });
 </script>
 <template>
-  <el-drawer :model-value="modelValue" title="邮箱资料" size="min(560px, 100vw)" :before-close="beforeClose" append-to-body class="mailbox-profile-drawer" @update:model-value="emit('update:modelValue', $event)">
-    <div v-if="loading" class="profile-loading" role="status">正在读取邮箱资料…</div>
-    <div v-if="error" class="profile-error" role="alert">{{ error }}<button v-if="!profile" class="btn" @click="load">重新读取</button></div>
+  <el-drawer :model-value="modelValue" title="邮箱资料" size="min(480px, 100vw)" :before-close="beforeClose" append-to-body class="pg-drawer mailbox-profile-drawer" @update:model-value="emit('update:modelValue', $event)">
+    <p v-if="loading" class="mpd-muted" role="status">正在读取邮箱资料…</p>
+    <p v-if="error" class="mpd-error" role="alert">{{ error }}<el-button v-if="!profile" link type="primary" @click="load">重新读取</el-button></p>
     <template v-if="profile">
-      <div class="profile-identity"><strong>{{ profile.address }}</strong><span>备注和服务登记保存在本系统中，不会修改 Apple 标签。</span></div>
-      <section class="profile-section">
-        <h3>邮箱备注</h3>
-        <form @submit.prevent="saveNote"><label class="sr-only" for="mailbox-note-input">邮箱备注</label><el-input id="mailbox-note-input" v-model="note" type="textarea" :rows="3" :maxlength="2000" show-word-limit placeholder="例如：个人开发工具、工作用途；不要填写密码或验证码。" :disabled="busy" /><div class="profile-form-actions"><el-button :disabled="!dirtyNote || busy" :loading="savingNote" native-type="submit" type="primary">保存备注</el-button></div></form>
-      </section>
-      <section class="profile-section">
-        <div class="profile-section-heading"><h3>服务登记</h3><el-button :disabled="busy || Boolean(serviceError)" @click="resetForm()">新增登记</el-button></div>
-        <p class="profile-hint">未记录不代表未注册。请按实际情况登记；同一服务可记录多个账号。</p>
-        <p v-if="serviceError" class="profile-error" role="alert">{{ serviceError }}<button class="btn" @click="load">重新加载</button></p>
-        <div v-if="!profile.registrations.length" class="profile-empty">尚未记录服务使用情况。完成注册后，在这里登记。</div>
-        <div v-for="entry in profile.registrations" :key="entry.id" class="registration-entry">
-          <div class="registration-entry-head"><strong>{{ entry.service_name }}</strong><span :class="['registration-status', `is-${entry.status}`]">{{ registrationLabel(entry.status) }}</span></div>
-          <span v-if="entry.account_identifier" class="registration-account">账号：{{ entry.account_identifier }}</span>
-          <p v-if="entry.note">{{ entry.note }}</p>
-          <div class="registration-entry-actions"><button :disabled="busy" @click="resetForm(entry)">编辑</button><button :disabled="busy" @click="remove(entry)">{{ removing === entry.id ? '移除中…' : '移除登记' }}</button></div>
-        </div>
-        <form v-if="formOpen" class="registration-form" @submit.prevent="submitRegistration">
-          <h4>{{ editingId ? '编辑登记' : '新增服务登记' }}</h4>
-          <label>服务<SearchableMailboxSelect v-model="formService" :options="serviceOptions" aria-label="登记服务" placeholder="搜索服务名称或域名" :disabled="busy || Boolean(editingId)" /></label>
-          <p v-if="!services.length && !serviceError" class="profile-hint">还没有服务。<button type="button" class="profile-link" @click="manageServices">前往服务登记创建</button></p>
-          <label>状态<el-select v-model="formStatus" aria-label="登记状态" :disabled="busy"><el-option v-for="state in registrationStates" :key="state.value" :value="state.value" :label="state.label" /></el-select></label>
-          <label v-if="formStatus !== 'not_registered'">账号标识（可选）<el-input v-model="formAccount" :maxlength="200" :disabled="busy || Boolean(editingId)" placeholder="用于区分同一服务的多个账号，不填写密码" /></label>
-          <label>登记说明（可选）<el-input v-model="formNote" type="textarea" :rows="2" :maxlength="2000" :disabled="busy" /></label>
-          <p v-if="registrationError" class="profile-error" role="alert">{{ registrationError }}</p>
-          <div class="profile-form-actions"><el-button :disabled="busy" @click="formOpen = false">取消</el-button><el-button type="primary" native-type="submit" :loading="savingRegistration" :disabled="busy || !formService">保存登记</el-button></div>
+      <div class="mpd-identity">
+        <strong translate="no">{{ profile.address }}</strong>
+        <span class="mpd-muted">备注和服务登记只保存在本系统，不修改 Apple 标签。</span>
+      </div>
+      <section class="mpd-section" aria-labelledby="mpd-note-title">
+        <h3 id="mpd-note-title" class="mpd-heading">邮箱备注</h3>
+        <form @submit.prevent="saveNote">
+          <el-input id="mailbox-note-input" v-model="note" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }" :maxlength="2000" show-word-limit placeholder="例如：个人开发工具、工作用途…（不要填写密码或验证码）" aria-labelledby="mpd-note-title" :disabled="busy" />
+          <div class="mpd-actions"><el-button :disabled="!dirtyNote || busy" :loading="savingNote" native-type="submit" type="primary">保存备注</el-button></div>
         </form>
-        <p v-else-if="registrationError" class="profile-error" role="alert">{{ registrationError }}</p>
+      </section>
+      <section class="mpd-section" aria-labelledby="mpd-reg-title">
+        <div class="mpd-heading-row">
+          <h3 id="mpd-reg-title" class="mpd-heading">服务登记 <span class="pg-count">{{ profile.registrations.length }}</span></h3>
+          <el-button size="small" :disabled="busy || Boolean(serviceError)" @click="resetForm()">新增登记</el-button>
+        </div>
+        <p v-if="serviceError" class="mpd-error" role="alert">{{ serviceError }}<el-button link type="primary" @click="load">重新加载</el-button></p>
+        <p v-if="!profile.registrations.length" class="mpd-muted">还没有登记。未记录不代表未注册，完成注册后在这里登记。</p>
+        <ul v-else class="mpd-list">
+          <li v-for="entry in profile.registrations" :key="entry.id" class="mpd-entry">
+            <div class="mpd-entry__line">
+              <strong class="pg-ellipsis" :title="entry.service_name">{{ entry.service_name }}</strong>
+              <span :class="['pg-badge', entry.status === 'registered' ? 'is-success' : entry.status === 'pending' ? 'is-warning' : '']">{{ registrationLabel(entry.status) }}</span>
+              <span v-if="entry.account_identifier" class="mpd-muted pg-ellipsis" :title="entry.account_identifier" translate="no">{{ entry.account_identifier }}</span>
+              <span class="mpd-entry__actions">
+                <el-button link type="primary" :disabled="busy" @click="resetForm(entry)">编辑</el-button>
+                <el-button link :disabled="busy" @click="remove(entry)">{{ removing === entry.id ? "移除中…" : "移除" }}</el-button>
+              </span>
+            </div>
+            <p v-if="entry.note" class="mpd-entry__note">{{ entry.note }}</p>
+          </li>
+        </ul>
+        <form v-if="formOpen" class="mpd-form" @submit.prevent="submitRegistration">
+          <h4 class="mpd-heading">{{ editingId ? "编辑登记" : "新增登记" }}</h4>
+          <label>服务<SearchableMailboxSelect v-model="formService" :options="serviceOptions" aria-label="登记服务" placeholder="搜索服务名称或域名…" :disabled="busy || Boolean(editingId)" /></label>
+          <p v-if="!services.length && !serviceError" class="mpd-muted">还没有服务。<el-button link type="primary" @click="manageServices">前往服务登记创建</el-button></p>
+          <label>状态<el-select v-model="formStatus" aria-label="登记状态" :disabled="busy"><el-option v-for="state in registrationStates" :key="state.value" :value="state.value" :label="state.label" /></el-select></label>
+          <label v-if="formStatus !== 'not_registered'">账号标识（可选）<el-input v-model="formAccount" :maxlength="200" :disabled="busy || Boolean(editingId)" autocomplete="off" :spellcheck="false" placeholder="区分同一服务的多个账号，不填写密码" /></label>
+          <label>登记说明（可选）<el-input v-model="formNote" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" :maxlength="2000" :disabled="busy" /></label>
+          <p v-if="registrationError" class="mpd-error" role="alert">{{ registrationError }}</p>
+          <div class="mpd-actions"><el-button :disabled="busy" @click="formOpen = false">取消</el-button><el-button type="primary" native-type="submit" :loading="savingRegistration" :disabled="busy || !formService">保存登记</el-button></div>
+        </form>
+        <p v-else-if="registrationError" class="mpd-error" role="alert">{{ registrationError }}</p>
       </section>
     </template>
   </el-drawer>
 </template>
 <style>
-.mailbox-profile-drawer .el-drawer__header { margin-bottom: 0; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
-.mailbox-profile-drawer .el-drawer__body { padding: 24px; }
-.profile-identity { display: grid; gap: 8px; padding-bottom: 24px; }
-.profile-identity strong { font-size: 16px; overflow-wrap: anywhere; }
-.profile-identity span, .profile-hint { color: var(--text-secondary); font-size: 12px; line-height: 1.8; }
-.profile-section { padding: 20px 0; border-top: 1px solid var(--border); }
-.profile-section h3 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
-.profile-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.profile-section-heading h3 { margin-bottom: 0; }
-.profile-section .profile-hint { margin: 12px 0; }
-.profile-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
-.profile-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 12px 0; color: var(--danger); font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
-.profile-loading, .profile-empty { padding: 20px 0; color: var(--text-secondary); font-size: 13px; line-height: 1.8; }
-.registration-entry { padding: 16px 0; border-top: 1px solid var(--border); }
-.registration-entry-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.registration-entry-head strong { font-size: 14px; overflow-wrap: anywhere; }
-.registration-status { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
-.registration-status.is-registered { color: var(--success); }.registration-status.is-pending { color: var(--warning); }
-.registration-account { display: block; margin-top: 7px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; }
-.registration-entry p { margin: 8px 0 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
-.registration-entry-actions { display: flex; gap: 16px; margin-top: 8px; }
-.registration-entry-actions button, .profile-link { min-height: 32px; padding: 3px 0; border: 0; background: transparent; color: var(--primary); cursor: pointer; font: inherit; font-size: 12px; }
-.registration-entry-actions button:disabled { opacity: .5; cursor: not-allowed; }
-.registration-form { display: grid; gap: 14px; margin-top: 16px; padding-top: 20px; border-top: 1px solid var(--border); }
-.registration-form h4 { margin: 0; font-size: 14px; font-weight: 600; }
-.registration-form > label { display: grid; gap: 8px; color: var(--text-secondary); font-size: 13px; }
-.registration-form .el-select, .registration-form .searchable-mailbox-select { width: 100%; }
-@media(max-width:740px) { .mailbox-profile-drawer .el-drawer__body { padding: 18px; }.mailbox-profile-drawer .el-button, .registration-entry-actions button, .profile-link { min-height: 44px; }.mailbox-profile-drawer .el-drawer__close-btn { min-width: 44px; min-height: 44px; } }
+.mailbox-profile-drawer .mpd-muted { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 16px; }
+.mailbox-profile-drawer .mpd-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; color: var(--danger); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
+.mailbox-profile-drawer .mpd-identity { display: grid; gap: 4px; padding-bottom: 12px; }
+.mailbox-profile-drawer .mpd-identity strong { color: var(--text); font-family: var(--font-mono); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.mailbox-profile-drawer .mpd-section { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
+.mailbox-profile-drawer .mpd-heading { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 16px; font-weight: 600; }
+.mailbox-profile-drawer .mpd-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; }
+.mailbox-profile-drawer .mpd-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.mailbox-profile-drawer .mpd-list { margin: 0; padding: 0; list-style: none; }
+.mailbox-profile-drawer .mpd-entry { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.mailbox-profile-drawer .mpd-entry:first-child { border-top: 1px solid var(--border); }
+.mailbox-profile-drawer .mpd-entry__line { display: flex; align-items: center; gap: 8px; min-height: 28px; min-width: 0; }
+.mailbox-profile-drawer .mpd-entry__line > strong { flex: 0 1 auto; color: var(--text); font-weight: 500; }
+.mailbox-profile-drawer .mpd-entry__actions { display: flex; flex: 0 0 auto; gap: 8px; margin-left: auto; }
+.mailbox-profile-drawer .mpd-entry__note { margin: 0 0 4px; color: var(--text-secondary); font-size: 12px; line-height: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mailbox-profile-drawer .mpd-form { display: grid; gap: 12px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
+.mailbox-profile-drawer .mpd-form > label { display: grid; gap: 4px; color: var(--text-secondary); font-size: 12px; }
+.mailbox-profile-drawer .mpd-form .el-select, .mailbox-profile-drawer .mpd-form .searchable-mailbox-select { width: 100%; }
+@media (max-width: 740px) { .mailbox-profile-drawer .el-drawer__close-btn { min-width: 44px; min-height: 44px; } }
 </style>
