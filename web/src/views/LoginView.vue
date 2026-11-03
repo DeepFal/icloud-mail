@@ -2,11 +2,10 @@
   <main class="login-page">
     <div class="login-appearance"><ThemeControl /></div>
     <div class="login-shell">
-      <AppBrand title="iCloud 隐私邮箱" />
-
       <section class="login-panel" aria-labelledby="login-title">
         <div class="login-panel__heading">
-          <h1 id="login-title">登录</h1>
+          <AppBrand title="iCloud 隐私邮箱" />
+          <h1 id="login-title">登录后台</h1>
         </div>
 
         <el-alert
@@ -56,17 +55,19 @@
             <el-input
               ref="usernameInput"
               v-model="form.username"
+              name="username"
               autocomplete="username"
+              spellcheck="false"
+              autocapitalize="off"
               maxlength="128"
-              :prefix-icon="User"
             />
           </el-form-item>
           <el-form-item label="密码" prop="password">
             <el-input
               v-model="form.password"
               type="password"
+              name="password"
               autocomplete="current-password"
-              :prefix-icon="Lock"
               show-password
             />
           </el-form-item>
@@ -76,7 +77,7 @@
             type="primary"
             :loading="submitting"
           >
-            登录
+            {{ submitting ? "登录中…" : "登录" }}
           </el-button>
         </el-form>
       </section>
@@ -85,7 +86,7 @@
 </template>
 
 <script setup>
-import { Loading, Lock, Refresh, User } from "@element-plus/icons-vue";
+import { Loading, Refresh } from "@element-plus/icons-vue";
 import { computed, nextTick, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
@@ -216,3 +217,63 @@ async function submit() {
 
 onMounted(initialize);
 </script>
+
+<style scoped>
+.login-page {
+  background: var(--app-bg);
+}
+
+.login-shell {
+  max-width: 360px;
+}
+
+.login-panel {
+  gap: 16px;
+  padding: 24px;
+  border-radius: var(--radius-overlay);
+}
+
+.login-panel__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login-panel__heading h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.login-panel :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+.login-panel :deep(.el-form-item__label) {
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.login-submit {
+  width: 100%;
+  min-height: 0;
+  height: var(--el-component-size-large);
+  margin-top: 4px;
+}
+
+.login-initializing,
+.login-retry {
+  justify-content: flex-start;
+  min-height: 64px;
+}
+
+.login-appearance {
+  top: 16px;
+  right: 16px;
+}
+</style>

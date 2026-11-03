@@ -114,19 +114,20 @@ test("IMAP validation errors stay in flow before the endpoint hint", async () =>
   );
 });
 
-test("account form keeps local responsive layout constraints", async () => {
+test("account form is a single aligned column with in-flow IMAP errors", async () => {
   const source = await readFile(viewPath, "utf8");
 
-  assert.match(source, /<section class="content-narrow page-stack account-form-page">/);
+  assert.match(source, /<section class="pg account-form-page">/);
+  assert.match(source, /class="pg-form pg-form--aligned"/);
+  assert.match(source, /label-position="left"/);
+  assert.match(source, /label-width="140px"/);
+  assert.doesNotMatch(source, /class="form-grid"/);
   assert.match(source, /<style scoped>/);
-  assert.match(source, /\.account-form-page\s*\{[^}]*max-width:\s*960px;[^}]*margin-inline:\s*auto;/s);
-  assert.match(source, /\.account-form-page :deep\(\.form-grid\)\s*\{[^}]*align-items:\s*start;[^}]*row-gap:\s*20px;/s);
-  assert.match(source, /\.account-form-page :deep\(\.form-grid > \.el-form-item\)\s*\{[^}]*min-width:\s*0;[^}]*margin-bottom:\s*0;/s);
-  assert.match(source, /\.account-form-page \.form-actions\s*\{[^}]*margin-top:\s*20px;/s);
+  assert.match(source, /\.account-form-page\s*\{[^}]*max-width:\s*720px;/s);
   assert.match(source, /\.account-form-page :deep\(\.imap-service-fields\)\s*\{[^}]*minmax\(0, 1fr\) 112px;/s);
   assert.match(source, /@media \(max-width: 720px\)\s*\{[^}]*minmax\(0, 1fr\) 88px;/s);
   assert.match(source, /\.account-form-page :deep\(\.imap-service-fields \.el-form-item__error\)[\s\S]*?position:\s*static;/s);
-  assert.match(source, /\.account-form-page :deep\(\.mailbox-route-summary\)[\s\S]*?padding:\s*12px 14px;/s);
+  assert.match(source, /class="pg-actions form-actions"/);
 });
 
 test("account form exposes custom mailbox suffix and keeps the iCloud branch", async () => {

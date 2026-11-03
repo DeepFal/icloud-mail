@@ -1,6 +1,6 @@
 <template>
-  <section class="content-narrow page-stack account-form-page">
-    <div v-if="loading" class="form-panel loading-panel" role="status" aria-live="polite" aria-busy="true" aria-label="正在加载主号表单">
+  <section class="pg account-form-page">
+    <div v-if="loading" class="loading-panel" role="status" aria-live="polite" aria-busy="true" aria-label="正在加载主号表单">
       <el-skeleton :rows="7" animated />
     </div>
 
@@ -17,28 +17,32 @@
     <el-form
       v-else
       ref="formRef"
-      class="form-panel"
+      class="pg-form pg-form--aligned"
       :model="form"
       :rules="rules"
-      label-position="top"
+      label-position="left"
+      label-width="140px"
       :disabled="submitting"
       status-icon
       @submit.prevent="submit"
     >
       <RequestAlert
         v-if="submitError"
+        class="account-form__alert"
         :error="submitError"
         closable
         @close="submitError = null"
       />
 
-      <div class="form-grid">
+      <fieldset class="pg-fieldset">
+        <legend>邮箱</legend>
         <el-form-item label="备注" prop="name">
           <el-input
             v-model="form.name"
+            name="account-name"
             maxlength="80"
             show-word-limit
-            placeholder="例如：个人主号"
+            placeholder="例如：个人主号…"
             autocomplete="off"
           />
         </el-form-item>
@@ -46,31 +50,27 @@
         <el-form-item label="邮箱类型" prop="mailboxType">
           <el-select
             v-model="form.mailboxType"
-            style="width: 100%"
             :disabled="emailLocked"
           >
             <el-option label="iCloud 隐私邮箱" value="icloud" />
             <el-option label="自定义邮箱" value="custom" />
           </el-select>
-          <p class="field-help">
-            iCloud 规则和自动创建计划保持不变；自定义邮箱可按后缀批量生成地址。
+          <p class="pg-help mailbox-route-summary" role="status">
+            收件规则：{{ receiveRuleLabel }}。{{ receiveRuleHelp }}
           </p>
         </el-form-item>
-
-        <div class="form-span mailbox-route-summary" role="status">
-          <strong>当前收件规则：{{ receiveRuleLabel }}</strong>
-          <p class="field-help">{{ receiveRuleHelp }}</p>
-        </div>
 
         <el-form-item v-if="!isCustomMailbox" label="iCloud 主号邮箱" prop="email">
           <el-input
             v-model="form.email"
             type="email"
+            name="email"
             placeholder="name@icloud.com"
             autocomplete="email"
+            :spellcheck="false"
             :readonly="emailLocked"
           />
-          <p v-if="emailLocked" class="field-help">
+          <p v-if="emailLocked" class="pg-help">
             已有隐私地址后，主号邮箱不能修改。
           </p>
         </el-form-item>
@@ -82,37 +82,49 @@
         >
           <el-input
             v-model="form.emailSuffix"
+            name="email-suffix"
             placeholder="example.com 或 @example.com"
             autocomplete="off"
+            :spellcheck="false"
             :readonly="emailLocked"
           />
-          <p class="field-help">
-            随机邮箱会按 8–12 位英文数字 + @后缀生成，不受 iCloud 每小时规则限制。
+          <p class="pg-help">
+            随机邮箱按 8–12 位英文数字 + @后缀生成，不受 iCloud 每小时规则限制。
           </p>
         </el-form-item>
+      </fieldset>
 
+      <fieldset class="pg-fieldset">
+        <legend>IMAP 收件</legend>
         <el-form-item label="IMAP 用户名" prop="imapUsername">
           <el-input
             v-model="form.imapUsername"
-            :placeholder="isCustomMailbox ? '填写邮箱服务器的登录用户名' : '通常填写完整 iCloud 邮箱'"
+            name="imap-username"
+            :placeholder="isCustomMailbox ? '邮箱服务器的登录用户名' : '通常是完整 iCloud 邮箱'"
             autocomplete="username"
+            :spellcheck="false"
           />
-          <p v-if="!isCustomMailbox" class="field-help">
-            若 iCloud 隐私邮箱转发到第三方邮箱，请填写第三方 IMAP 登录/最终投递邮箱（例如 mango@example.com）；X-Original-To 可能仍是中间转发地址。
-          </p>
+          <details v-if="!isCustomMailbox" class="pg-disclosure account-form__more">
+            <summary>转发到第三方邮箱时怎么填</summary>
+            <p class="pg-help">
+              若 iCloud 隐私邮箱转发到第三方邮箱，请填写第三方 IMAP 登录/最终投递邮箱（例如 mango@example.com）；X-Original-To 可能仍是中间转发地址。
+            </p>
+          </details>
         </el-form-item>
 
-        <el-form-item class="form-span imap-service-field" label="IMAP 服务">
+        <el-form-item class="is-wide imap-service-field" label="IMAP 服务">
           <div class="imap-service-fields">
-            <el-form-item prop="imapHost" label="主机" class="imap-service-field__host">
+            <el-form-item prop="imapHost" class="imap-service-field__host">
               <el-input
                 v-model="form.imapHost"
+                name="imap-host"
                 placeholder="imap.mail.me.com"
                 autocomplete="off"
+                :spellcheck="false"
                 aria-label="IMAP 主机"
               />
             </el-form-item>
-            <el-form-item prop="imapPort" label="端口" class="imap-service-field__port">
+            <el-form-item prop="imapPort" class="imap-service-field__port">
               <el-input-number
                 v-model="form.imapPort"
                 :step="1"
@@ -121,126 +133,119 @@
               />
             </el-form-item>
           </div>
-          <p class="field-help">iCloud 默认使用 imap.mail.me.com:993。固定启用 TLS 1.2 或更高版本并校验证书，不自动切换端口。</p>
+          <p class="pg-help">iCloud 默认 imap.mail.me.com:993。固定 TLS 1.2+ 并校验证书，不自动切换端口。</p>
         </el-form-item>
 
         <el-form-item
-          class="form-span"
           :label="usesGenericIMAPPassword ? 'IMAP 密码' : 'App 专用密码'"
           prop="imapPassword"
         >
           <el-input
             v-model="form.imapPassword"
             type="password"
+            name="imap-password"
             show-password
-            :placeholder="isEdit ? '留空则保留当前密码' : usesGenericIMAPPassword ? '填写邮箱服务器的 IMAP 密码' : '在 Apple 账户中生成的专用密码'"
+            :placeholder="isEdit ? '留空则保留当前密码' : usesGenericIMAPPassword ? '邮箱服务器的 IMAP 密码' : '在 Apple 账户中生成的专用密码'"
             autocomplete="new-password"
           />
-          <p class="field-help">
+          <p class="pg-help">
             {{ usesGenericIMAPPassword ? "第三方/自定义邮箱的 IMAP 密码只会加密保存，后续不会回显。" : "Apple App 专用密码只会加密保存，后续不会回显。" }}
           </p>
-          <p v-if="appPasswordShapeUnusual" class="field-help" role="status">当前输入与常见 App 专用密码格式不同。请确认使用此 Apple 账户生成的 16 位字母专用密码，可保留分组连字符；Apple 登录密码用于下方连接登录。</p>
+          <p v-if="appPasswordShapeUnusual" class="pg-help account-form__warn" role="status">当前输入与常见 App 专用密码格式不同。请确认使用此 Apple 账户生成的 16 位字母专用密码，可保留分组连字符；Apple 登录密码用于下方连接登录。</p>
         </el-form-item>
+      </fieldset>
 
-        <section v-if="!isCustomMailbox" class="form-span auto-login-card" aria-labelledby="auto-login-heading" :aria-busy="autoLoginLoading">
-          <div class="switch-field">
-            <div>
-              <h2 id="auto-login-heading">自动保活服务</h2>
-              <p>新通道或旧通道需要重新登录时，自动提交账户密码并从接码链接读取双重验证码，补充现有保活。</p>
-            </div>
-            <el-switch
-              v-model="form.autoLoginEnabled"
-              :disabled="!autoLoginReady || autoLoginLoading"
-              inline-prompt
-              active-text="开启"
-              inactive-text="关闭"
-              aria-label="自动保活服务"
-            />
-          </div>
-          <p v-if="autoLoginLoading" class="field-help" role="status">正在读取自动保活配置…</p>
+      <fieldset v-if="!isCustomMailbox" class="pg-fieldset auto-login-section" :aria-busy="autoLoginLoading">
+        <legend id="auto-login-heading">自动保活</legend>
+        <el-form-item label="自动保活服务">
+          <el-switch
+            v-model="form.autoLoginEnabled"
+            :disabled="!autoLoginReady || autoLoginLoading"
+            aria-label="自动保活服务"
+          />
+          <p class="pg-help">新通道或旧通道需要重新登录时，自动提交账户密码并从接码链接读取双重验证码，补充现有保活。</p>
+          <p v-if="autoLoginLoading" class="pg-help" role="status">正在读取自动保活配置…</p>
           <div v-else-if="autoLoginLoadError" class="auto-login-load-error" role="alert">
-            <p>自动保活配置读取失败。为保留原有设置，请重新读取后再保存主号。</p>
+            <p class="pg-help account-form__warn">自动保活配置读取失败。为保留原有设置，请重新读取后再保存主号。</p>
             <el-button :icon="Refresh" @click="loadAutoLogin">重新读取保活配置</el-button>
           </div>
-          <template v-else-if="autoLoginReady && form.autoLoginEnabled">
-            <p class="field-help">这里填写 Apple 账户登录密码，与上方收件用的 App 专用密码不同。密码与接码链接加密保存，保存后不回显；仅在重新登录时使用。</p>
-            <div class="auto-login-fields">
-              <el-form-item label="Apple 账户区域" prop="autoLoginRegion" required>
-                <el-select v-model="form.autoLoginRegion" placeholder="请选择账户区域" style="width: 100%">
-                  <el-option label="国际区" value="global" />
-                  <el-option label="中国大陆" value="cn" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="Apple 账户登录密码" prop="autoLoginPassword" required>
-                <el-input
-                  v-model="form.autoLoginPassword"
-                  type="password"
-                  :placeholder="savedAutoLogin.passwordConfigured ? '已设置，留空保留，可覆盖' : '填写 Apple 账户登录密码'"
-                  autocomplete="new-password"
-                  :spellcheck="false"
-                  autocapitalize="off"
-                />
-              </el-form-item>
-              <el-form-item class="form-span" label="保活双重验证接码链接" prop="autoLoginCodeURL" required>
-                <el-input
-                  v-model="form.autoLoginCodeURL"
-                  type="password"
-                  :placeholder="savedAutoLogin.codeURLConfigured ? '已设置，留空保留，可覆盖' : '填写完整的 http 或 https 接码链接'"
-                  autocomplete="new-password"
-                  :spellcheck="false"
-                  autocapitalize="off"
-                />
-                <p class="field-help">请选择该账户双重验证对应的接码链接。关闭自动保活后，这三项无需填写。</p>
-              </el-form-item>
-            </div>
-          </template>
-          <div v-if="autoLoginReady && savedAutoLogin.channels.length" class="auto-login-channels" aria-label="自动保活状态">
-            <div v-for="(channel, index) in savedAutoLogin.channels" :key="`${channel.channel}:${index}`" class="auto-login-channel">
-              <strong>{{ channel.channel === 'new' ? '新通道' : channel.channel === 'legacy' ? '旧通道' : '连接通道' }}</strong>
-              <span>{{ autoLoginStatusLabel(channel.status) }}</span>
-              <span v-if="channel.lastAttemptAt">最近尝试 {{ formatTime(channel.lastAttemptAt) }}</span>
-              <span v-if="channel.lastSuccessAt">最近成功 {{ formatTime(channel.lastSuccessAt) }}</span>
-              <span v-if="channel.nextAttemptAt">下次尝试 {{ formatTime(channel.nextAttemptAt) }}</span>
-              <span v-if="channel.lastErrorCode">状态码 {{ channel.lastErrorCode }}</span>
-            </div>
-          </div>
-        </section>
-
-        <el-form-item v-if="isEdit" class="form-span account-enabled-field">
-          <div class="switch-field">
-            <div>
-              <strong>启用主号同步</strong>
-              <p>停用后隐藏邮箱列表不显示下属邮箱，邮箱池入池候选也隐藏；重新启用后恢复显示及原池状态，不删除邮箱或领取历史。</p>
-            </div>
-            <el-switch
-              v-model="form.enabled"
-              inline-prompt
-              active-text="启用"
-              inactive-text="停用"
-              aria-label="启用主号同步"
-            />
-          </div>
         </el-form-item>
-      </div>
+        <template v-if="!autoLoginLoading && !autoLoginLoadError && autoLoginReady && form.autoLoginEnabled">
+          <el-form-item label="Apple 账户区域" prop="autoLoginRegion" required>
+            <el-select v-model="form.autoLoginRegion" placeholder="选择账户区域">
+              <el-option label="国际区" value="global" />
+              <el-option label="中国大陆" value="cn" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="Apple 账户登录密码" prop="autoLoginPassword" required>
+            <el-input
+              v-model="form.autoLoginPassword"
+              type="password"
+              name="apple-login-password"
+              :placeholder="savedAutoLogin.passwordConfigured ? '已设置，留空保留，可覆盖' : '填写 Apple 账户登录密码'"
+              autocomplete="new-password"
+              :spellcheck="false"
+              autocapitalize="off"
+            />
+            <p class="pg-help">这里填写 Apple 账户登录密码，与上方收件用的 App 专用密码不同。密码与接码链接加密保存，保存后不回显；仅在重新登录时使用。</p>
+          </el-form-item>
+          <el-form-item class="is-wide" label="双重验证接码链接" prop="autoLoginCodeURL" required>
+            <el-input
+              v-model="form.autoLoginCodeURL"
+              type="password"
+              name="apple-code-url"
+              :placeholder="savedAutoLogin.codeURLConfigured ? '已设置，留空保留，可覆盖' : '完整的 http 或 https 接码链接'"
+              autocomplete="new-password"
+              :spellcheck="false"
+              autocapitalize="off"
+            />
+            <p class="pg-help">填写该账户双重验证对应的接码链接。关闭自动保活后，这三项无需填写。</p>
+          </el-form-item>
+        </template>
+        <el-form-item v-if="autoLoginReady && savedAutoLogin.channels.length" label="保活状态">
+          <dl class="auto-login-channels" aria-label="自动保活状态">
+            <template v-for="(channel, index) in savedAutoLogin.channels" :key="`${channel.channel}:${index}`">
+              <dt>{{ channel.channel === 'new' ? '新通道' : channel.channel === 'legacy' ? '旧通道' : '连接通道' }}</dt>
+              <dd>
+                <span>{{ autoLoginStatusLabel(channel.status) }}</span>
+                <span v-if="channel.lastAttemptAt">最近尝试 {{ formatTime(channel.lastAttemptAt) }}</span>
+                <span v-if="channel.lastSuccessAt">最近成功 {{ formatTime(channel.lastSuccessAt) }}</span>
+                <span v-if="channel.nextAttemptAt">下次尝试 {{ formatTime(channel.nextAttemptAt) }}</span>
+                <span v-if="channel.lastErrorCode">状态码 {{ channel.lastErrorCode }}</span>
+              </dd>
+            </template>
+          </dl>
+        </el-form-item>
+      </fieldset>
 
-      <div class="form-actions">
-        <el-button :icon="Close" @click="cancel">取消</el-button>
+      <fieldset v-if="isEdit" class="pg-fieldset">
+        <legend>状态</legend>
+        <el-form-item label="启用主号同步" class="account-enabled-field">
+          <el-switch
+            v-model="form.enabled"
+            aria-label="启用主号同步"
+          />
+          <p class="pg-help">停用后隐藏邮箱列表不显示下属邮箱，邮箱池入池候选也隐藏；重新启用后恢复显示及原池状态，不删除邮箱或领取历史。</p>
+        </el-form-item>
+      </fieldset>
+
+      <div class="pg-actions form-actions">
         <el-button
           native-type="submit"
           type="primary"
-          :icon="Check"
           :loading="submitting"
           :disabled="!isCustomMailbox && (!autoLoginReady || autoLoginLoading)"
         >
-          保存
+          {{ submitting ? "保存中…" : "保存" }}
         </el-button>
+        <el-button @click="cancel">取消</el-button>
       </div>
     </el-form>
   </section>
 </template>
 
 <script setup>
-import { Back, Check, Close, Refresh } from "@element-plus/icons-vue";
+import { Back, Refresh } from "@element-plus/icons-vue";
 import { ElMessageBox } from "element-plus";
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -252,6 +257,7 @@ import {
   updateAccount,
 } from "../api/admin.js";
 import RequestAlert from "../components/RequestAlert.vue";
+import "../styles/pages.css";
 import { useAuth } from "../stores/auth.js";
 import {
   createActionLock,
@@ -671,36 +677,40 @@ onBeforeUnmount(() => {
 <style scoped>
 .account-form-page {
   width: 100%;
-  max-width: 960px;
-  margin-inline: auto;
+  max-width: 720px;
 }
 
-.account-form-page :deep(.form-grid) {
-  align-items: start;
-  row-gap: 20px;
+.account-form__alert {
+  margin-bottom: 12px;
 }
 
-.account-form-page :deep(.form-grid > .el-form-item) {
-  min-width: 0;
-  margin-bottom: 0;
+.account-form__more {
+  flex-basis: 100%;
+  margin-top: 4px;
 }
 
-.account-form-page :deep(.el-input__wrapper),
-.account-form-page :deep(.el-select .el-select__wrapper),
-.account-form-page :deep(.el-button) {
-  min-height: 38px;
+.account-form__warn {
+  color: var(--warning);
+}
+
+.account-form-page .pg-fieldset + .pg-fieldset {
+  margin-top: 8px;
 }
 
 .account-form-page :deep(.imap-service-fields) {
+  display: grid;
+  width: 100%;
+  max-width: 480px;
   grid-template-columns: minmax(0, 1fr) 112px;
-}
-
-.account-form-page .form-actions {
-  margin-top: 20px;
+  gap: 8px;
 }
 
 .account-form-page :deep(.imap-service-fields .el-form-item) {
   margin-bottom: 0;
+}
+
+.account-form-page :deep(.imap-service-fields .el-input-number) {
+  width: 100%;
 }
 
 .account-form-page :deep(.imap-service-fields .el-form-item__error) {
@@ -709,66 +719,38 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.account-form-page :deep(.mailbox-route-summary) {
-  padding: 12px 14px;
-  background: var(--surface-subtle);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-}
-
-.auto-login-card {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-  padding: 20px;
-  background: var(--surface-subtle);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
-.auto-login-card h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.auto-login-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-}
-
-.auto-login-fields :deep(.el-form-item) {
-  min-width: 0;
-  margin-bottom: 0;
-}
-
-.auto-login-fields :deep(.el-form-item__error) {
-  position: static;
-}
-
 .auto-login-channels {
   display: grid;
-  gap: 10px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 20px;
 }
 
-.auto-login-channel {
+.auto-login-channels dt {
+  color: var(--text-secondary);
+}
+
+.auto-login-channels dd {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
-  font-size: 12px;
+  gap: 0 12px;
+  margin: 0;
+  color: var(--text);
 }
 
-.auto-login-load-error p {
-  margin-top: 0;
+.auto-login-load-error {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 @media (max-width: 720px) {
   .account-form-page :deep(.imap-service-fields) {
     grid-template-columns: minmax(0, 1fr) 88px;
-  }
-
-  .auto-login-fields {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>
