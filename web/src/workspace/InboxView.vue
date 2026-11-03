@@ -10,7 +10,9 @@ import { createLiveRefresh } from "../utils/liveRefresh.js";
 import { batchMessages, getMessage, getMessages, messagePath, patchMessage } from "./mail-api.js";
 import { formatMailDate } from "./mail-format.js";
 import { setUnreadBadge } from "../stores/page.js";
+import { useTheme } from "../stores/theme.js";
 import { copyText } from "../utils/clipboard.js";
+import { hasBlockedImages, isDesignedMail, mailFrameDocument, mailRenderMode, measureFrameHeight, readMailPalette, readRenderPreference, saveRenderPreference } from "./mail-frame.js";
 import { messageKey, useInboxMessages, watchInboxFilters } from "./inbox-state.js";
 import { useInboxReceive } from "./inbox-receive.js";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
@@ -114,9 +116,21 @@ function profileUpdated(profile) {
   if (selected.value?.address === profile.address) selected.value.mailboxNote = profile.note;
 }
 function profileEvent(event) { if (event.detail) profileUpdated({ alias_id: event.detail.aliasId, ...event.detail }); }
-function safeHTML(value) { return `<!doctype html><html><head><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"><style>body{font:14px/1.9 system-ui,sans-serif;margin:16px;color:#27312f;overflow-wrap:anywhere}table{border-collapse:collapse;max-width:100%}td,th{border:1px solid #ddd;padding:8px}pre{white-space:pre-wrap}</style></head><body>${value || ""}</body></html>`; }
-const readerScroll = ref(null);
-watch(() => messageKey(selected.value), () => { readerScroll.value?.scrollTo({ top: 0 }); });
+// Mail HTML: sandboxed frame; dark theme adapts plain mail and keeps designed mail on light paper unless the user chose otherwise.
+const { resolvedTheme } = useTheme();
+const renderPreference = ref(readRenderPreference());
+const designedMail = computed(() => isDesignedMail(detail.value?.html));
+const renderMode = computed(() => mailRenderMode({ dark: resolvedTheme.value === "dark", designed: designedMail.value, preference: renderPreference.value }));
+const frameDocument = computed(() => detail.value?.html ? mailFrameDocument(detail.value.html, { mode: renderMode.value, palette: resolvedTheme.value === "dark" ? readMailPalette() : undefined }) : "");
+const blockedImages = computed(() => viewMode.value === "html" && hasBlockedImages(detail.value?.html));
+function setRenderPreference(value) { renderPreference.value = value; saveRenderPreference(value); }
+// The frame is same-origin but script-free (scripts are never enabled in its sandbox): the parent sizes it to its content so the reading pane is the only scroller.
+const mailFrame = ref(null), readerScroll = ref(null), frameHeight = ref(160);
+let frameWidth = 0;
+function fitFrame() { const height = measureFrameHeight(mailFrame.value?.contentDocument); if (height) frameHeight.value = height; }
+const frameResize = typeof ResizeObserver === "function" ? new ResizeObserver(([entry]) => { const width = Math.round(entry.contentRect.width); if (width !== frameWidth) { frameWidth = width; fitFrame(); } }) : null;
+watch(mailFrame, (frame, previous) => { if (previous) frameResize?.unobserve(previous); frameWidth = 0; if (frame) frameResize?.observe(frame); });
+watch(() => messageKey(selected.value), () => { frameHeight.value = 160; readerScroll.value?.scrollTo({ top: 0 }); });
 // List column width: dragged or arrow keys on the divider, remembered per browser.
 const LIST_WIDTH_KEY = "icloud-inbox-list-width";
 const clampWidth = (value) => Math.min(520, Math.max(280, Math.round(Number(value) || 340)));
@@ -152,7 +166,7 @@ watch(unreadCount, (count) => setUnreadBadge(count), { immediate: true });
 watch(() => route.query.account_id, (value) => { filters.accountId = String(value || ""); });
 watch(() => route.query.alias_id, (value) => { filters.aliasId = String(value || ""); });
 onMounted(() => { loadMeta(); loadList(); liveRefresh.start({ immediate: false }); window.addEventListener("icloud:mailbox-profile-updated", profileEvent); window.addEventListener("keydown", shortcut); });
-onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); window.removeEventListener("keydown", shortcut); disposed = true; metaVersion++; metaController?.abort(); stopFilterWatch(); liveRefresh.stop(); inbox.dispose(); });
+onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); window.removeEventListener("keydown", shortcut); frameResize?.disconnect(); disposed = true; metaVersion++; metaController?.abort(); stopFilterWatch(); liveRefresh.stop(); inbox.dispose(); });
 </script>
 
 <template>
@@ -239,6 +253,8 @@ onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:ma
           </header>
           <div v-if="detail && !detailLoading && !detailError" class="body-tools">
             <div v-if="detail.html && detail.contentAvailable" class="segmented small" role="group" aria-label="正文显示方式"><button :class="{ active: viewMode === 'html' }" :aria-pressed="viewMode === 'html'" @click="viewMode = 'html'">排版</button><button :class="{ active: viewMode === 'text' }" :aria-pressed="viewMode === 'text'" @click="viewMode = 'text'">纯文本</button></div>
+            <div v-if="viewMode === 'html' && detail.html && designedMail && resolvedTheme === 'dark'" class="segmented small" role="group" aria-label="深色模式下的正文"><button :class="{ active: renderMode === 'paper' }" :aria-pressed="renderMode === 'paper'" @click="setRenderPreference('paper')">原样</button><button :class="{ active: renderMode === 'adapt' }" :aria-pressed="renderMode === 'adapt'" @click="setRenderPreference('adapt')">适配深色</button></div>
+            <span v-if="blockedImages" class="body-hint" title="远程图片不会自动加载，避免向发件方暴露阅读行为">远程图片未加载</span>
             <span v-if="detail.body_truncated" class="body-hint warning">正文过长，仅显示部分</span>
             <span class="bar-spacer"></span>
             <el-popover v-if="detail.links?.length" trigger="click" placement="bottom-end" :width="320" popper-class="inbox-popover">
@@ -255,7 +271,7 @@ onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:ma
             <div v-if="detailLoading" class="state" role="status">正在读取正文…</div>
             <div v-else-if="detailError" class="state error" role="alert"><p>{{ detailError }}</p><div class="state-actions"><button class="bar-button" @click="retryDetail">重新读取</button><a v-if="sourcePath" :href="sourcePath" download>下载原始邮件</a></div></div>
             <p v-else-if="detail && !detail.contentAvailable" class="state warning">{{ contentStatus(detail.message.contentState) }}。标题与时间仍然保留。</p>
-            <iframe v-else-if="detail && viewMode === 'html' && detail.html" class="html-body" sandbox="" referrerpolicy="no-referrer" :srcdoc="safeHTML(detail.html)" title="邮件正文"></iframe>
+            <div v-else-if="detail && viewMode === 'html' && detail.html" :class="['html-frame', { 'is-paper': renderMode === 'paper' }]"><iframe ref="mailFrame" class="html-body" sandbox="allow-same-origin" referrerpolicy="no-referrer" scrolling="no" :srcdoc="frameDocument" :style="{ height: `${frameHeight}px` }" title="邮件正文" @load="fitFrame"></iframe></div>
             <article v-else-if="detail" class="text-body">{{ detail.text || '这封邮件没有文字正文。' }}</article>
           </div>
         </div>
