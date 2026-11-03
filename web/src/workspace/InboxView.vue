@@ -1,8 +1,9 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { ArrowLeft, ArrowRight, Box, Close, Collection, CopyDocument, Delete, Download, Message, Plus, Refresh, Search, Star, StarFilled } from "@element-plus/icons-vue";
+import { syncAccount } from "../api/admin.js";
 import { useAuth } from "../stores/auth.js";
 import { apiRequest } from "../api/client.js";
 import { createLiveRefresh } from "../utils/liveRefresh.js";
@@ -10,6 +11,7 @@ import { batchMessages, getMessage, getMessages, messagePath, patchMessage } fro
 import { formatMailDate } from "./mail-format.js";
 import { setUnreadBadge } from "../stores/page.js";
 import { messageKey, useInboxMessages, watchInboxFilters } from "./inbox-state.js";
+import { useInboxReceive } from "./inbox-receive.js";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
 import MailboxProfileDrawer from "./MailboxProfileDrawer.vue";
 import "./inbox.css";
@@ -27,6 +29,7 @@ const inbox = useInboxMessages({ filters, page, getMessages, getMessage, patchMe
 const { messages, selected, detail, readerOpen, viewMode, loading, detailLoading, error, detailError, total, unreadCount, busy, pages, selectedIndex, previousMessage, nextMessage, loadList, selectMessage, mutate, batch, cancelList, resetReader } = inbox;
 let metaController, metaVersion = 0, disposed = false;
 const liveRefresh = createLiveRefresh(() => loadList({ silent: true }));
+const { receiving, notice: receiveNotice, receive } = useInboxReceive({ getAccounts: () => accounts.value, getAccountFilter: () => filters.accountId, syncAccount, getCsrfToken: () => auth.state.csrfToken, reloadList: () => loadList({ silent: true }), isDisposed: () => disposed, onSubmitted: () => window.dispatchEvent(new Event("icloud:receiving-updated")) });
 const sourcePath = computed(() => selected.value ? messagePath(`/mailboxes/${selected.value.aliasId}/messages/${selected.value.mailboxUid}/source`) : "");
 const hasFilters = computed(() => Boolean(filters.query.trim() || filters.accountId || filters.aliasId || filters.groupId || filters.unread || filters.starred || filters.hasOtp));
 const optionFilterCount = computed(() => [filters.accountId, filters.aliasId, filters.groupId].filter(Boolean).length);
@@ -126,6 +129,7 @@ onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:ma
         <button class="manage-addresses" @click="router.push({ name: 'aliases' })"><Collection /><span>管理隐私地址</span></button>
       </div>
     </header>
+    <div v-if="receiveNotice" class="inbox-feedback" :class="{ warning: receiveNotice.error }" :role="receiveNotice.error ? 'alert' : 'status'"><span>{{ receiveNotice.text }}</span><RouterLink v-if="receiveNotice.to" :to="receiveNotice.to">{{ receiveNotice.link }}<ArrowRight /></RouterLink><button v-if="!receiveNotice.pending" class="feedback-dismiss" aria-label="关闭收件提示" @click="receiveNotice = null"><Close /></button></div>
     <div v-if="lastAction" class="inbox-feedback" role="status"><span>{{ lastAction.label }}</span><button class="undo-action" :disabled="undoing" @click="undoMove">{{ undoing ? '撤销中…' : '撤销' }}</button><button class="feedback-dismiss" aria-label="关闭操作提示" @click="lastAction = null"><Close /></button></div>
     <div class="inbox-filters">
       <label class="mail-search"><Search /><input v-model="filters.query" aria-label="搜索标题、发件人或地址" placeholder="搜索标题、发件人或地址…" /></label>
@@ -141,6 +145,7 @@ onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:ma
       <nav class="folder-tabs" aria-label="邮件文件夹"><button v-for="folder in [{ id: 'inbox', name: '全部来信' }, { id: 'archived', name: '已归档' }, { id: 'trash', name: '垃圾箱' }]" :key="folder.id" :class="{ active: filters.folder === folder.id }" :aria-pressed="filters.folder === folder.id" @click="filters.folder = folder.id">{{ folder.name }}</button></nav>
       <div class="mail-state-filters"><label :class="{ active: filters.unread }"><input v-model="filters.unread" type="checkbox" />未读 <span>{{ unreadCount }}</span></label><label :class="{ active: filters.starred }"><input v-model="filters.starred" type="checkbox" />星标</label><label :class="{ active: filters.hasOtp }"><input v-model="filters.hasOtp" type="checkbox" />含验证码</label></div>
       <button class="list-refresh" :disabled="loading" @click="loadList()"><Refresh :class="{ spinning: loading }" /><span>{{ loading ? '刷新中…' : '刷新' }}</span></button>
+      <button class="list-receive" :disabled="receiving || metaLoading || Boolean(metaError)" title="向启用的主号提交收件请求" @click="receive">{{ receiving ? '提交中…' : '收取' }}</button>
       <button class="list-select" :aria-pressed="selectMode" :disabled="!messages.length && !selectMode" @click="toggleSelectMode">{{ selectMode ? '完成' : '多选' }}</button>
     </div>
     <div v-if="hasFilters" class="active-mail-filters"><span>已应用筛选 · {{ total }} 封结果</span><button @click="clearFilters">清除筛选<Close /></button></div>
