@@ -140,6 +140,12 @@ export function useInboxMessages({ filters, page, pageSize = 40, getMessages, ge
       await batchMessages(action, mails, getCsrfToken());
       if (disposed) return false;
       cancelList();
+      // Like mutate(): the open reader may have left the list, so update it directly.
+      if (action === "read" || action === "unread") {
+        const read = action === "read";
+        mails.forEach((mail) => { mail.read = read; });
+        if (keys.includes(messageKey(selected.value))) selected.value.read = read;
+      }
       const movesFolder = ["archive", "unarchive", "trash", "restore"].includes(action);
       const selectedMoved = movesFolder && keys.includes(messageKey(selected.value));
       if (selectedMoved) resetReader();

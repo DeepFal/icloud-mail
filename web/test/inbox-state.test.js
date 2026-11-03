@@ -24,9 +24,13 @@ function fixture(options = {}) {
       Object.assign(mail, patch);
       return { ...mail };
     },
+    async batchMessages(action, mails) {
+      for (const mail of mails) stored.find((item) => item.mailboxUid === mail.mailboxUid).read = action === "read";
+      return { action, updated: mails.length };
+    },
     ...options.api,
   };
-  const state = useInboxMessages({ filters, page, pageSize: options.pageSize || 40, getMessages: (...args) => api.getMessages(...args), getMessage: (...args) => api.getMessage(...args), patchMessage: (...args) => api.patchMessage(...args), getCsrfToken: () => "csrf-fixture", onError: (message) => errors.push(message) });
+  const state = useInboxMessages({ filters, page, pageSize: options.pageSize || 40, getMessages: (...args) => api.getMessages(...args), getMessage: (...args) => api.getMessage(...args), patchMessage: (...args) => api.patchMessage(...args), batchMessages: (...args) => api.batchMessages(...args), getCsrfToken: () => "csrf-fixture", onError: (message) => errors.push(message) });
   return { state, stored, filters, page, errors, calls, api };
 }
 
@@ -165,6 +169,25 @@ test("disposing a pending reader cannot send an automatic read write", async () 
   state.dispose(); request.resolve({ text: "late", html: "" }); await pending;
   assert.equal(state.selected.value, null);
   assert.equal(calls.length, 0);
+});
+
+test("batch read updates the open reader that leaves the unread results", async () => {
+  const { state, filters, api } = fixture();
+  await state.loadList();
+  assert.equal(state.selected.value.mailboxUid, 1);
+  assert.equal(state.selected.value.read, false);
+  assert.equal(await state.batch("read", state.messages.value.slice(0, 2)), true);
+  assert.deepEqual(state.messages.value.map((mail) => mail.mailboxUid), [3]);
+  assert.equal(state.selected.value.mailboxUid, 1, "the reader keeps the mail that left the results");
+  assert.equal(state.selected.value.read, true);
+  assert.equal(state.detail.value.text, "正文 1");
+
+  filters.unread = false;
+  await state.loadList();
+  api.getMessages = async () => { throw new Error("列表暂时不可用"); };
+  assert.equal(await state.batch("unread", [state.selected.value]), true);
+  assert.equal(state.selected.value.read, false, "the reader shows the confirmed state even when the list refresh fails");
+  state.dispose();
 });
 
 test("search waits for a typing pause while other filters reload at once", async (t) => {
