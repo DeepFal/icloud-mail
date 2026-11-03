@@ -92,12 +92,14 @@ import { useRoute, useRouter } from "vue-router";
 import AppBrand from "../components/AppBrand.vue";
 import ThemeControl from "../components/ThemeControl.vue";
 import RequestAlert from "../components/RequestAlert.vue";
+import { getAccountPage } from "../api/admin.js";
 import { useAuth } from "../stores/auth.js";
 import { createActionLock } from "../utils/asyncState.js";
 import {
   loginNoticeMessage,
   loginNoticeRequiresExplicitLogin,
   loginNoticeType,
+  resolveLandingRoute,
 } from "../utils/authFlow.js";
 
 const route = useRoute();
@@ -132,7 +134,7 @@ const noticeType = computed(() =>
   loginNoticeType(String(route.query.notice || "")),
 );
 
-function redirectTarget() {
+async function redirectTarget() {
   const target = String(route.query.redirect || "");
   if (
     target.startsWith("/") &&
@@ -141,7 +143,7 @@ function redirectTarget() {
   ) {
     return target;
   }
-  return { name: "accounts" };
+  return resolveLandingRoute(getAccountPage);
 }
 
 async function prepareLogin() {
@@ -168,7 +170,7 @@ async function initialize() {
   } else {
     try {
       if (await auth.ensureSession()) {
-        await router.replace(redirectTarget());
+        await router.replace(await redirectTarget());
         return;
       }
     } catch {
@@ -191,7 +193,7 @@ async function submit() {
     noticeDismissed.value = true;
     const password = form.password;
     await auth.login(form.username.trim(), password);
-    await router.replace(redirectTarget());
+    await router.replace(await redirectTarget());
   } catch (error) {
     formRef.value?.clearValidate("password");
     loginError.value = error;

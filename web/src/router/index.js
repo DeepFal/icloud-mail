@@ -1,12 +1,14 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+import { getAccountPage } from "../api/admin.js";
 import { setUnauthorizedHandler } from "../api/client.js";
-import AdminLayout from "../workspace/WorkspaceLayout.vue";
+import WorkspaceLayout from "../workspace/WorkspaceLayout.vue";
 import { useAuth } from "../stores/auth.js";
 import { setPageHeader } from "../stores/page.js";
 import {
   buildLoginRedirect,
   loginNoticeRequiresExplicitLogin,
+  resolveLandingRoute,
 } from "../utils/authFlow.js";
 import { ADMIN_BASE_PATH } from "../utils/runtimePath.js";
 import { preloadRoute } from "../utils/routePreload.js";
@@ -20,7 +22,7 @@ const routes = [
   },
   {
     path: "/",
-    component: AdminLayout,
+    component: WorkspaceLayout,
     meta: { requiresAuth: true },
     children: [
       {
@@ -137,7 +139,7 @@ router.beforeEach(async (to) => {
       auth.isAuthenticated.value &&
       !loginNoticeRequiresExplicitLogin(String(to.query.notice || ""))
     ) {
-      return { name: "accounts", replace: true };
+      return { ...(await resolveLandingRoute(getAccountPage)), replace: true };
     }
     return true;
   }

@@ -9,6 +9,7 @@ import {
   loginNoticeMessage,
   loginNoticeRequiresExplicitLogin,
   loginNoticeType,
+  resolveLandingRoute,
 } from "../src/utils/authFlow.js";
 
 const loginViewPath = new URL("../src/views/LoginView.vue", import.meta.url);
@@ -132,7 +133,7 @@ test("login initialization preserves rotation notices and waits for explicit cre
       },
     },
     { replace: async () => assert.fail("rotation notice redirected to admin") },
-    () => ({ name: "accounts" }),
+    async () => ({ name: "inbox" }),
     { value: false },
     async () => events.push("prepare-login"),
     { value: true },
@@ -148,5 +149,20 @@ test("router never redirects an explicit rotation login notice back to admin", a
   assert.match(
     source,
     /to\.name === "login"[\s\S]*auth\.isAuthenticated\.value[\s\S]*!loginNoticeRequiresExplicitLogin\(String\(to\.query\.notice \|\| ""\)\)/,
+  );
+});
+
+test("landing route sends users with accounts to the inbox and others to setup", async () => {
+  const withAccount = async (options) => {
+    assert.deepEqual(options, { limit: 1 });
+    return { items: [{ id: 1 }], total: 1 };
+  };
+  assert.deepEqual(await resolveLandingRoute(withAccount), { name: "inbox" });
+  assert.deepEqual(await resolveLandingRoute(async () => ({ items: [] })), { name: "accounts" });
+  assert.deepEqual(
+    await resolveLandingRoute(async () => {
+      throw new Error("offline");
+    }),
+    { name: "inbox" },
   );
 });
