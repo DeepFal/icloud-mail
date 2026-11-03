@@ -222,7 +222,7 @@ docker compose ps
 curl -fsS http://127.0.0.1:8788/healthz
 ```
 
-以上命令使用 `.env` 的 `ICLOUD_MAIL_VERSION`（默认 `v0.2.9`），拉取 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres`。首次镜像发布前或需要从源码构建时，按 [交付说明](../DELIVERY.md) 显式合并 `compose.build.yaml`。
+以上命令使用 `.env` 的 `ICLOUD_MAIL_VERSION`（默认 `v0.2.10`），拉取 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres`。首次镜像发布前或需要从源码构建时，按 [交付说明](../DELIVERY.md) 显式合并 `compose.build.yaml`。
 
 新安装使用自己的 Web/API 域名，例如 `mail.example.com`。HTTPS 反向代理转发到 `127.0.0.1:8788`；公网启用 HTTPS Cookie。公开 IMAPS 使用独立域名及 TLS 证书，具体见 [公网部署](PUBLIC.md)。
 

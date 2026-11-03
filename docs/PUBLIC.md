@@ -9,7 +9,7 @@
 3. HTTPS 反向代理指向 `http://127.0.0.1:8788`。宝塔中的 SSL 证书用于 Web 代理；仅使用 HTTP API 时无需配置应用内 IMAPS 证书。
 4. 在 `.env` 设置 `ICLOUD_API_COOKIE_SECURE=true`，重建应用容器使设置生效。保持单实例。
 
-GHCR 固定版本安装使用 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres`。在 `.env` 设置 `ICLOUD_MAIL_VERSION=v0.2.9`（或其他已发布版本）；首次镜像发布完成前使用源码构建。升级 = 修改 `.env` 里的版本号 + `docker compose pull` + `docker compose up -d`，升级前按 [交付说明](../DELIVERY.md#数据备份与更新) 备份。已有完整镜像覆盖项需先移除或同步修改：
+GHCR 固定版本安装使用 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres`。在 `.env` 设置 `ICLOUD_MAIL_VERSION=v0.2.10`（或其他已发布版本）；首次镜像发布完成前使用源码构建。升级 = 修改 `.env` 里的版本号 + `docker compose pull` + `docker compose up -d`，升级前按 [交付说明](../DELIVERY.md#数据备份与更新) 备份。已有完整镜像覆盖项需先移除或同步修改：
 
 ```sh
 docker compose pull

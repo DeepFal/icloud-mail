@@ -50,7 +50,7 @@ docker compose -f compose.yaml -f compose.build.yaml ps
 curl -fsS http://127.0.0.1:8788/healthz
 ```
 
-以上为源码构建安装，与 [交付说明](../DELIVERY.md#源码构建安装推荐) 一致，不依赖镜像是否已发布。若目标版本已在 GHCR 发布，可在 `.env` 设置 `ICLOUD_MAIL_VERSION`（默认 `v0.2.9`），改用 `docker compose pull` 与 `docker compose up -d --wait`，详见 [交付说明](../DELIVERY.md#ghcr-镜像)。
+以上为源码构建安装，与 [交付说明](../DELIVERY.md#源码构建安装推荐) 一致，不依赖镜像是否已发布。若目标版本已在 GHCR 发布，可在 `.env` 设置 `ICLOUD_MAIL_VERSION`（默认 `v0.2.10`），改用 `docker compose pull` 与 `docker compose up -d --wait`，详见 [交付说明](../DELIVERY.md#ghcr-镜像)。
 
 以上示例将 HTTP 发布在 `127.0.0.1:8788`，IMAPS 发布在 `127.0.0.1:1993`，管理入口为 `/admin/`。云服务器可通过 SSH 隧道访问，或按 [公网部署](PUBLIC.md) 配置 HTTPS 反向代理。首次启动会在 keys 卷中保存管理路径，并生成管理员密码、外部登记接口的 OAuth token、主密钥，以及本地持久化 IMAPS 自签证书。
 
