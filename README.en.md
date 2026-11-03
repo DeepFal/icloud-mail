@@ -53,6 +53,17 @@ For a remote server, use an SSH tunnel to reach the dashboard:
 ssh -N -L 127.0.0.1:8788:127.0.0.1:8788 USER@SERVER
 ```
 
+### Forgot the admin password
+
+Run the `admin reset` subcommand from the project directory. It resets the admin credentials and signs out all existing sessions:
+
+```sh
+docker compose -f compose.yaml -f compose.build.yaml run --rm --no-deps icloud-api admin reset
+docker compose -f compose.yaml -f compose.build.yaml exec -T icloud-api cat /app/keys/admin-password
+```
+
+If `ICLOUD_API_ADMIN_PASSWORD` is not set in `.env`, a new random password is generated and stored as `admin-password` in the keys volume; if it is set, that value becomes the new password. The username stays `admin`. For image installs, drop `-f compose.build.yaml`. The `exec` command needs a running service; run `docker compose up -d --wait` first if needed.
+
 Back up the database, keys, and mail archive before updates; preserve `.env` and existing data volumes. See [DELIVERY.md](DELIVERY.md) and the [public deployment guide](docs/PUBLIC.md) for installation, backups, migration, and public HTTPS.
 
 To upgrade an image installation, change `ICLOUD_MAIL_VERSION` in `.env` to the published target version, then pull and recreate both services:

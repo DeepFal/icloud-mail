@@ -53,6 +53,17 @@ docker compose -f compose.yaml -f compose.build.yaml exec -T icloud-api cat /app
 ssh -N -L 127.0.0.1:8788:127.0.0.1:8788 USER@SERVER
 ```
 
+### 忘记管理员密码
+
+在项目目录运行 `admin reset` 子命令重置管理员凭据，所有旧登录会话会同时注销：
+
+```sh
+docker compose -f compose.yaml -f compose.build.yaml run --rm --no-deps icloud-api admin reset
+docker compose -f compose.yaml -f compose.build.yaml exec -T icloud-api cat /app/keys/admin-password
+```
+
+未在 `.env` 设置 `ICLOUD_API_ADMIN_PASSWORD` 时，会生成新的随机密码并保存到 keys 卷的 `admin-password`；已设置时则以该值作为新密码。用户名保持 `admin`。镜像安装去掉命令中的 `-f compose.build.yaml`。第二条 `exec` 需要服务已在运行，必要时先 `docker compose up -d --wait`。
+
 升级前请备份数据库、密钥和邮件归档，保留 `.env` 与已有数据卷；安装、备份、迁移和公网 HTTPS 说明见 [DELIVERY.md](DELIVERY.md) 与 [公网部署指南](docs/PUBLIC.md)。
 
 镜像安装的升级流程为：修改 `.env` 中的 `ICLOUD_MAIL_VERSION` 为已发布的目标版本号，再拉取并重建两个服务：
