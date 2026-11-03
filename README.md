@@ -55,14 +55,22 @@ ssh -N -L 127.0.0.1:8788:127.0.0.1:8788 USER@SERVER
 
 ### 忘记管理员密码
 
-在项目目录运行 `admin reset` 子命令重置管理员凭据，所有旧登录会话会同时注销：
+在项目目录运行 `admin reset` 子命令重置管理员凭据，所有旧登录会话会同时注销；完成后会输出当前用户名，即 `.env` 中的 `ICLOUD_API_ADMIN_USER`，未设置时为 `admin`：
 
 ```sh
 docker compose -f compose.yaml -f compose.build.yaml run --rm --no-deps icloud-api admin reset
+```
+
+重置后的密码来源：
+
+- `.env` 已设置 `ICLOUD_API_ADMIN_PASSWORD`：密码就是该配置值，直接用它登录；此时 keys 卷中不保留 `admin-password` 文件。
+- 未设置：keys 卷中已有 `admin-password` 时沿用其中的密码，只有没有该文件时才生成新的随机密码并写入。可在服务运行时读取（必要时先 `docker compose up -d --wait`）：
+
+```sh
 docker compose -f compose.yaml -f compose.build.yaml exec -T icloud-api cat /app/keys/admin-password
 ```
 
-未在 `.env` 设置 `ICLOUD_API_ADMIN_PASSWORD` 时，会生成新的随机密码并保存到 keys 卷的 `admin-password`；已设置时则以该值作为新密码。用户名保持 `admin`。镜像安装去掉命令中的 `-f compose.build.yaml`。第二条 `exec` 需要服务已在运行，必要时先 `docker compose up -d --wait`。
+镜像安装去掉命令中的 `-f compose.build.yaml`。
 
 升级前请备份数据库、密钥和邮件归档，保留 `.env` 与已有数据卷；安装、备份、迁移和公网 HTTPS 说明见 [DELIVERY.md](DELIVERY.md) 与 [公网部署指南](docs/PUBLIC.md)。
 
