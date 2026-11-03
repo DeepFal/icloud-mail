@@ -1,5 +1,5 @@
 <template>
-  <section ref="aliasSelectionContainer" class="page-stack" @pointerdown.capture="aliasDrag.pointerDown">
+  <section ref="aliasSelectionContainer" class="pg account-detail" @pointerdown.capture="aliasDrag.pointerDown">
     <div v-if="loading && !account" class="data-panel loading-panel" role="status" aria-live="polite" aria-busy="true" aria-label="正在加载主号详情">
       <el-skeleton :rows="9" animated />
     </div>
@@ -17,6 +17,15 @@
     </div>
 
     <template v-else-if="account">
+      <header class="pg-bar account-summary" aria-label="主号状态">
+        <SyncStatus :item="account" />
+        <AppleConnectionTags v-if="!isCustomMailbox" :account="account" />
+        <span class="pg-count">{{ account.aliasCount }} 个地址</span>
+        <span v-if="account.name" class="account-summary__note pg-ellipsis" :title="account.name">{{ account.name }}</span>
+        <div class="pg-bar__end">
+          <el-button :icon="EditPen" :disabled="manualAliasLoading" @click="editAccount">编辑主号</el-button>
+        </div>
+      </header>
       <AccountSetupGuide :account="account" :management-ready="appleSessionAuthenticated" :custom="isCustomMailbox" :busy="syncActive || appleAuthLoading || appleConnectionLoading" @connect="openAppleLogin()" @configure="editAccount" @sync="syncNow" />
       <el-dialog
         v-model="appleAuthVisible"
@@ -316,8 +325,6 @@
                 :model-value="Boolean(autoCreation.enabled)"
                 :loading="autoCreationLoading"
                 :disabled="autoCreationToggleDisabled"
-                active-text="开启"
-                inactive-text="关闭"
                 :aria-label="`${autoCreation.enabled ? '关闭' : '开启'}自动创建隐私地址`"
                 @change="toggleAutoCreation"
               />
@@ -425,19 +432,18 @@
           role="search"
           aria-label="搜索当前主号隐私地址"
         >
-          <label class="account-alias-search__field">
-            <span>关键词</span>
-            <el-input
-              v-model="aliasQueryDraft"
-              clearable
-              maxlength="200"
-              :prefix-icon="Search"
-              aria-label="关键词：模糊搜索当前主号隐私地址"
-              placeholder="邮箱地址或用途备注"
-              @keyup.enter="applyAliasSearch"
-              @clear="applyAliasSearch"
-            />
-          </label>
+          <el-input
+            v-model="aliasQueryDraft"
+            class="account-alias-search__field"
+            clearable
+            maxlength="200"
+            :prefix-icon="Search"
+            :spellcheck="false"
+            aria-label="关键词：模糊搜索当前主号隐私地址"
+            placeholder="邮箱地址或用途备注"
+            @keyup.enter="applyAliasSearch"
+            @clear="applyAliasSearch"
+          />
           <el-select
             v-model="aliasEnabledFilter"
             class="account-alias-search__status"
@@ -449,46 +455,33 @@
             <el-option label="启用" value="true" />
             <el-option label="停用" value="false" />
           </el-select>
-          <div class="account-alias-search__actions">
-            <el-button
-              type="primary"
-              :icon="Search"
-              :loading="loading"
-              @click="applyAliasSearch"
-            >
-              搜索
-            </el-button>
-            <el-button
-              :icon="RefreshLeft"
-              :disabled="!hasAliasSearch"
-              @click="clearAliasSearch"
-            >
-              清空
-            </el-button>
-          </div>
-          <div v-if="!isCustomMailbox" class="account-alias-search__selection">
-            <el-checkbox
-              :model-value="allAliasesSelected"
-              :indeterminate="someAliasesSelected"
-              :disabled="!selectableAliases.length || aliasSelectionBusy"
-              @change="setAllAliasesSelected"
-            >本页全选</el-checkbox>
+          <el-button
+            v-if="hasAliasSearch"
+            :icon="RefreshLeft"
+            @click="clearAliasSearch"
+          >
+            清空
+          </el-button>
+          <span class="pg-count">{{ total }} 个</span>
+          <div v-if="!isCustomMailbox && selectedAliasIds.length" class="account-alias-search__selection">
             <span class="account-alias-selected-count">已选 {{ selectedAliasIds.length }}</span>
             <el-button text :disabled="aliasSelectionBusy" @click="invertCurrentPageSelection">反选本页</el-button>
             <el-button
               text
               :disabled="!selectedAliasIds.length || aliasSelectionBusy"
               @click="clearAliasSelection"
-            >清选</el-button>
+            >取消选择</el-button>
           </div>
           <el-button
-            v-if="!isCustomMailbox"
+            v-if="!isCustomMailbox && selectedAliasIds.length"
             class="account-alias-delete-button"
             type="danger"
+            text
+            :icon="Delete"
             :disabled="!selectedAliasIds.length || loading || detailMutationPending()"
             :loading="batchDeleteConfirming || deletionState.submitting"
             @click="deleteSelectedAliases"
-          >从 iCloud 永久删除隐藏邮箱</el-button>
+          >从 iCloud 永久删除（{{ selectedAliasIds.length }}）</el-button>
         </div>
 
         <AliasDeletionProgress
@@ -520,6 +513,7 @@
           :class="{
             'desktop-data-table--force': pageSize > 100 || pageSize === ALL_PAGE_SIZE,
           }"
+          :style="aliasTableStyle"
           :aria-busy="loading"
         >
           <VirtualDataTable
@@ -527,7 +521,8 @@
             :data="aliases"
             row-key="id"
             fill-height
-            :row-height="64"
+            :row-height="ALIAS_ROW_HEIGHT"
+            :header-height="ALIAS_ROW_HEIGHT"
             :loading="loading"
           >
             <template #header-cell="{ column }">
@@ -552,9 +547,9 @@
                 @change="setAliasSelected(row, $event)"
               />
               <template v-else-if="column.key === 'address'">
-                <div class="primary-stack">
-                  <strong>{{ row.address }}</strong>
-                  <small>{{ row.label || "未填写用途备注" }}</small>
+                <div class="pg-cell alias-address">
+                  <strong :title="row.address" translate="no">{{ row.address }}</strong>
+                  <small v-if="row.label" :title="row.label">{{ row.label }}</small>
                 </div>
               </template>
               <template v-else-if="column.key === 'group'">
@@ -563,6 +558,7 @@
                   :model-value="row.groupId == null ? '' : String(row.groupId)"
                   :loading="groupsLoading || Boolean(groupMoveLoading[row.id])"
                   :disabled="groupsLoading || isAliasActionBusy(row)"
+                  placeholder="未分组"
                   aria-label="选择隐私地址分组"
                   @change="moveAliasToGroup(row, $event)"
                 >
@@ -576,18 +572,11 @@
                 </el-select>
               </template>
               <template v-else-if="column.key === 'latestReceivedAt'">
-                {{ formatTime(row.latestReceivedAt) }}
+                <span class="pg-num" :class="{ 'pg-muted': !row.latestReceivedAt }">{{ formatTime(row.latestReceivedAt) }}</span>
               </template>
               <template v-else-if="column.key === 'syncStatus'">
-                <el-tag
-                  v-if="isAliasConfirmationPending(row)"
-                  type="warning"
-                  effect="plain"
-                  size="small"
-                >
-                  等待目录确认
-                </el-tag>
-                <el-tag v-else-if="!row.accountEnabled && row.configuredEnabled" type="info" effect="plain" size="small">随主号暂停</el-tag>
+                <span v-if="isAliasConfirmationPending(row)" class="pg-dot is-warning">等待目录确认</span>
+                <span v-else-if="!row.accountEnabled && row.configuredEnabled" class="pg-dot">随主号暂停</span>
                 <SyncStatus v-else :item="row" details />
               </template>
               <template v-else-if="column.key === 'enabled'">
@@ -604,19 +593,20 @@
               <template v-else-if="column.key === 'actions'">
                 <div
                   v-if="!isAliasConfirmationPending(row)"
-                  class="icon-action-row"
+                  class="pg-row-actions alias-row-actions"
                 >
                   <el-button
+                    link
+                    type="primary"
                     size="small"
-                    :icon="CopyDocument"
                     :loading="Boolean(copyLoading[`${row.id}:otp`])"
                     :disabled="isAliasActionBusy(row)"
                     @click="copyAliasCredentials(row, ALIAS_EXPORT_OTP)"
                   >取码</el-button>
-                  <el-button size="small" @click="router.push({ name: 'inbox', query: { alias_id: String(row.id) } })">查看来信</el-button>
                   <el-button
+                    link
+                    type="primary"
                     size="small"
-                    :icon="CopyDocument"
                     :loading="Boolean(copyLoading[`${row.id}:imap`])"
                     :disabled="isAliasActionBusy(row)"
                     @click="copyAliasCredentials(row, ALIAS_EXPORT_IMAP)"
@@ -624,16 +614,18 @@
                   >IMAP</el-button>
                   <el-button
                     v-else-if="isLegacyDirectLinkAvailable(row)"
+                    link
+                    type="primary"
                     size="small"
-                    :icon="CopyDocument"
                     :loading="Boolean(copyLoading[`${row.id}:legacy-link`])"
                     :disabled="isAliasActionBusy(row)"
                     @click="copyLegacyDirectLink(row)"
                   >旧直达</el-button>
+                  <el-button link size="small" @click="router.push({ name: 'inbox', query: { alias_id: String(row.id) } })">来信</el-button>
                   <el-tooltip :content="aliasRotationLabel(row)" placement="top">
                     <el-button
+                      class="pg-icon-btn"
                       :icon="Key"
-                      circle
                       :loading="Boolean(rotateLoading[row.id])"
                       :disabled="isAliasActionBusy(row)"
                       :aria-label="`${aliasRotationLabel(row)}：${row.address}`"
@@ -645,10 +637,8 @@
                     placement="top"
                   >
                     <el-button
-                      type="danger"
-                      plain
+                      class="pg-icon-btn is-danger"
                       :icon="Delete"
-                      circle
                       :loading="Boolean(deleteLoading[row.id])"
                       :disabled="isAliasActionBusy(row)"
                       :aria-label="`${isCustomMailbox ? '从本地永久删除邮箱' : '从 iCloud 永久删除隐私地址'} ${row.address}`"
@@ -872,8 +862,7 @@
         </div>
         <el-button
           type="danger"
-          plain
-          :icon="Delete"
+          text
           :loading="accountDeleteLoading"
           @click="removeAccount"
         >
@@ -945,6 +934,8 @@ import RequestAlert from "../components/RequestAlert.vue";
 import SectionHeader from "../components/SectionHeader.vue";
 import SyncErrorLogDialog from "../components/SyncErrorLogDialog.vue";
 import SyncStatus from "../components/SyncStatus.vue";
+import AppleConnectionTags from "../components/AppleConnectionTags.vue";
+import "../styles/pages.css";
 import VirtualDataTable from "../components/VirtualDataTable.vue";
 import { useAuth } from "../stores/auth.js";
 import { setPageHeader } from "../stores/page.js";
@@ -1075,6 +1066,11 @@ const isCustomMailbox = computed(
   () => account.value?.mailboxType === "custom",
 );
 const canUseWebMail = computed(() => !isCustomMailbox.value && mailboxReceiveRule(account.value || {}) !== "icloud-forwarded");
+const ALIAS_ROW_HEIGHT = 32;
+// Up to 100 rows the table takes its natural height, so the page stays the only scroller.
+const aliasTableStyle = computed(() => aliases.value.length <= 100
+  ? { height: `${(aliases.value.length + 1) * ALIAS_ROW_HEIGHT + 2}px` }
+  : { height: "calc(100dvh - 160px)" });
 const visibleAliasColumns = computed(() => isCustomMailbox.value
   ? aliasColumns.filter((column) => column.key !== "selection")
   : aliasColumns,
@@ -1110,36 +1106,33 @@ const appleVerificationRules = {
   ],
 };
 const aliasColumns = Object.freeze([
-  { key: "selection", title: "", width: 48, minWidth: 48, align: "center" },
+  { key: "selection", title: "", width: 40, minWidth: 40, align: "center" },
   {
     key: "address",
     dataKey: "address",
     title: "隐私地址",
-    width: 230,
+    width: 260,
     minWidth: 230,
-    flexGrow: 1,
+    flexGrow: 3,
   },
   {
     key: "group",
     title: "分组",
-    width: 150,
-    minWidth: 150,
-    flexGrow: 1,
+    width: 128,
+    minWidth: 128,
   },
   {
     key: "latestReceivedAt",
     dataKey: "latestReceivedAt",
     title: "最新邮件",
-    width: 170,
-    minWidth: 170,
-    flexGrow: 1,
+    width: 140,
+    minWidth: 140,
   },
   {
     key: "syncStatus",
     title: "同步状态",
-    width: 130,
-    minWidth: 130,
-    flexGrow: 1,
+    width: 184,
+    minWidth: 150,
   },
   {
     key: "enabled",
@@ -1151,9 +1144,9 @@ const aliasColumns = Object.freeze([
   },
   {
     key: "actions",
-    title: "复制 / 操作",
-    width: 330,
-    minWidth: 330,
+    title: "",
+    width: 240,
+    minWidth: 240,
     align: "right",
   },
 ]);
@@ -2634,158 +2627,90 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.account-connection-settings > summary { cursor: pointer; font-size: 13px; }
-.account-connection-settings > summary span { float: right; margin-left: 12px; color: var(--text-secondary); font-size: 12px; }
-.account-connection-settings[open] > summary { padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+.account-detail { width: 100%; }
+.account-summary { flex-wrap: wrap; row-gap: 4px; }
+.account-summary :deep(.sync-status) { flex-direction: row; align-items: center; gap: 8px; }
+.account-summary :deep(.sync-status__progress) { width: 120px; }
+.account-summary__note { max-width: 240px; color: var(--text-secondary); font-size: 12px; }
 
-.section-status-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px 28px;
-  align-items: center;
-  margin: 4px 0 12px;
-  color: var(--text);
-}
+/* 收件设置: a single disclosure row until opened. */
+.account-connection-settings { gap: 8px; }
+.account-connection-settings > summary { display: flex; align-items: center; gap: 8px; min-height: 28px; color: var(--text); font-size: 13px; cursor: pointer; list-style: none; }
+.account-connection-settings > summary::-webkit-details-marker { display: none; }
+.account-connection-settings > summary::before { content: ""; width: 0; height: 0; border-block: 4px solid transparent; border-left: 5px solid var(--text-secondary); }
+.account-connection-settings[open] > summary::before { transform: rotate(90deg); }
+.account-connection-settings > summary strong { font-size: 14px; font-weight: 600; }
+.account-connection-settings > summary span { color: var(--text-muted); font-size: 12px; }
+.account-connection-settings > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
 
-.section-status-row > div {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
+.section-status-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 24px; margin: 0; color: var(--text); }
+.section-status-row > div { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; }
+.section-status-row__label { color: var(--text-secondary); font-size: 12px; }
+.section-status-row strong { font-weight: 500; font-variant-numeric: tabular-nums; }
 
-.section-status-row__label {
-  color: var(--text-secondary);
-  font-size: 12px;
-}
+.account-paused-notice { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 18px; }
+.account-paused-notice strong { color: var(--warning); font-weight: 600; }
 
-.account-paused-notice {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-.account-paused-notice strong { color: var(--text); }
+.account-connection-settings :deep(.detail-grid) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 0 0 8px; border: 0; border-radius: 0; background: transparent; }
+.account-connection-settings :deep(.detail-grid > div) { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); background: transparent; }
+.account-connection-settings :deep(.detail-grid dt) { color: var(--text-muted); font-size: 12px; }
+.account-connection-settings :deep(.detail-grid dd) { margin: 0; color: var(--text); font-size: 13px; overflow-wrap: anywhere; }
+.account-connection-settings .field-help { margin: 4px 0 8px; color: var(--text-muted); font-size: 12px; }
 
-.auto-creation-panel__status-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  margin-top: 4px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
+/* Panels inside sections lose their card chrome. */
+.auto-creation-panel { padding: 0 0 12px; border-bottom: 1px solid var(--border); }
+.auto-creation-panel__header { align-items: center; gap: 16px; }
+.auto-creation-panel__title-row h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.auto-creation-panel__status-line { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 2px; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.auto-creation-panel :deep(.el-tag) { height: 20px; border: 0; }
+.auto-creation-metrics { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: 8px; background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+.auto-creation-metrics > div { padding: 6px 12px 6px 0; background: transparent; }
+.auto-creation-metrics dt { color: var(--text-muted); font-size: 12px; }
+.auto-creation-metrics dd { margin-top: 2px; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.auto-creation-error { margin-top: 8px; padding: 0; background: transparent; border: 0; }
+.apple-session-strip { min-height: 0; padding: 0; background: transparent; color: var(--text-muted); }
+.apple-session-strip__summary { justify-content: flex-start; text-align: left; font-variant-numeric: tabular-nums; }
 
-@media (max-width: 720px) {
-  .section-status-row {
-    gap: 8px 16px;
-  }
-}
+/* Address list toolbar: one line; selection controls only while selecting. */
+.account-alias-search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 28px; padding: 0; background: transparent; border: 0; border-radius: 0; }
+.alias-creation-row { min-width: 0; }
+.account-alias-search__field { flex: 0 1 260px; width: 260px; min-width: 160px; }
+.account-alias-search__status { flex: 0 0 112px; width: 112px; }
+.account-alias-search__selection { display: flex; align-items: center; gap: 4px; margin-left: 8px; }
+.account-alias-selected-count { color: var(--text); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.account-alias-search :deep(.el-button + .el-button) { margin-left: 0; }
+.account-alias-delete-button { margin-left: auto; }
+.account-detail .account-alias-table { flex: 0 0 auto; min-height: 0; margin-inline: calc(-1 * var(--pg-pad)); border: 0; border-block: 1px solid var(--border); border-radius: 0; }
+.alias-address > strong { font-family: var(--font-mono); font-size: 12px; }
+.alias-row-actions { gap: 8px; }
 
-.account-alias-search {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-}
+.credential-value { display: block; max-width: 100%; overflow-x: auto; color: var(--text-primary); font-size: 12px; white-space: nowrap; user-select: all; }
 
-.alias-creation-row {
-  min-width: 0;
-}
+.alias-group-select { width: 100%; }
+.alias-group-select :deep(.el-select__wrapper) { min-height: 24px; padding: 0 6px; background: transparent; box-shadow: none; font-size: 12px; }
+.alias-group-select :deep(.el-select__suffix) { opacity: 0; }
+.alias-group-select:hover :deep(.el-select__wrapper), .alias-group-select :deep(.el-select__wrapper.is-focused) { background: var(--surface); box-shadow: 0 0 0 1px var(--border-strong) inset; }
+.alias-group-select:hover :deep(.el-select__suffix), .alias-group-select :deep(.el-select__wrapper.is-focused .el-select__suffix) { opacity: 1; }
+.mobile-alias-group-select { min-width: 150px; }
 
-.account-alias-search__field {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  flex: 1 1 200px;
-  gap: 8px;
-}
+.account-connection-settings.section-block { padding-block: 8px; }
+.alias-creation-row :deep(.creation-job-panel__title) { margin: 0; font-size: 14px; line-height: 22px; font-weight: 600; }
+.inline-alias-form { grid-template-columns: minmax(200px, 320px) minmax(160px, 260px) auto; justify-content: start; gap: 8px; padding: 12px 0 0; background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+.inline-alias-form :deep(.el-form-item__label) { margin-bottom: 4px; color: var(--text-secondary); font-size: 12px; font-weight: 500; line-height: 16px; }
 
-.account-alias-search__field > span {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
+.danger-zone { align-items: center; gap: 16px; padding: 16px 0 0; border-top: 1px solid var(--border); }
+.danger-zone h2 { margin: 0; color: var(--text); font-size: 13px; line-height: 20px; font-weight: 600; }
+.danger-zone p { margin: 2px 0 0; color: var(--text-muted); font-size: 12px; }
 
-.account-alias-search__status {
-  flex: 0 0 110px;
-  width: 110px;
-}
-
-.account-alias-search__actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 8px;
-}
-
-.account-alias-search__selection {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.account-alias-selected-count {
-  color: var(--text-secondary);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.account-alias-search :deep(.el-button + .el-button) {
-  margin-left: 0;
-}
-
-.account-alias-delete-button {
-  margin-left: auto;
-}
-
-.credential-value {
-  display: block;
-  max-width: 100%;
-  overflow-x: auto;
-  color: var(--text-primary);
-  font-size: 12px;
-  white-space: nowrap;
-  user-select: all;
-}
-
-.alias-group-select {
-  width: 132px;
-}
-
-.mobile-alias-group-select {
-  min-width: 150px;
+@media (max-width: 900px) {
+  .auto-creation-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .account-connection-settings :deep(.detail-grid) { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 720px) {
-  .alias-creation-row :deep(.creation-job-panel__controls) {
-    justify-content: flex-start;
-  }
-
-  .account-alias-search {
-    padding: 14px;
-  }
-
-  .account-alias-search__field {
-    flex-basis: 100%;
-  }
-
-  .account-alias-search__actions {
-    flex: 1;
-    justify-content: flex-end;
-  }
-
-  .account-alias-delete-button {
-    flex-basis: 100%;
-    margin-left: 0;
-  }
+  .alias-creation-row :deep(.creation-job-panel__controls) { justify-content: flex-start; }
+  .account-alias-search__field { flex: 1 1 100%; width: 100%; }
+  .account-alias-delete-button { flex-basis: 100%; margin-left: 0; }
+  .section-status-row { gap: 4px 16px; }
 }
 </style>

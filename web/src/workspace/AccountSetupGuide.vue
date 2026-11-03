@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import "../styles/pages.css";
 const props = defineProps({
   account: { type: Object, required: true },
   managementReady: Boolean,
@@ -13,17 +14,20 @@ const receivingMissing = computed(() => !props.account.lastSyncedAt || props.acc
 
 <template>
   <section v-if="account.enabled && (managementMissing || receivingMissing)" class="setup-status" aria-label="待完成的连接">
-    <strong>连接设置</strong>
-    <div v-if="managementMissing"><span>Apple 未连接</span><button :disabled="busy" @click="emit('connect')">连接 Apple</button></div>
-    <div v-if="receivingMissing"><span>收件待验证</span><button :disabled="busy" @click="emit('configure')">配置凭据</button><button :disabled="busy" @click="emit('sync')">验证收件</button></div>
+    <div v-if="managementMissing" class="setup-status__item">
+      <span class="pg-dot is-warning">Apple 未连接</span>
+      <el-button link type="primary" :disabled="busy" @click="emit('connect')">连接 Apple</el-button>
+    </div>
+    <div v-if="receivingMissing" class="setup-status__item">
+      <span class="pg-dot is-warning">收件待验证</span>
+      <el-button link type="primary" :disabled="busy" @click="emit('configure')">配置凭据</el-button>
+      <el-button link type="primary" :disabled="busy" @click="emit('sync')">验证收件</el-button>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.setup-status { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 24px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 12px; }
-.setup-status strong { font-weight: 600; }
-.setup-status div { display: flex; align-items: center; gap: 10px; }
-.setup-status span { color: var(--text-secondary); }
-.setup-status button { border: 0; background: transparent; color: var(--primary); font: inherit; cursor: pointer; padding: 4px; }
-.setup-status button:disabled { opacity: .5; cursor: not-allowed; }
+.setup-status { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 24px; min-height: 28px; font-size: 13px; }
+.setup-status__item { display: flex; align-items: center; gap: 12px; }
+.setup-status__item .pg-dot { color: var(--text); }
 </style>
