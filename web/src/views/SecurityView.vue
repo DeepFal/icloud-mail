@@ -1,6 +1,6 @@
 <template>
   <section class="content-narrow page-stack" aria-labelledby="security-form-title">
-    <SectionHeader
+    <SectionHeader level="h1"
       id="security-form-title"
       title="修改管理员密码"
     />

@@ -3,7 +3,7 @@
     class="page-stack virtual-list-page"
     aria-labelledby="accounts-section-title"
   >
-    <SectionHeader
+    <SectionHeader level="h1"
       id="accounts-section-title"
       title="邮箱主号"
     >

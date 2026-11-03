@@ -3,7 +3,7 @@
     class="page-stack virtual-list-page"
     aria-labelledby="audit-section-title"
   >
-    <SectionHeader
+    <SectionHeader level="h1"
       id="audit-section-title"
       title="操作记录"
     >

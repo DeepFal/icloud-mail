@@ -3,7 +3,7 @@
     class="page-stack virtual-list-page"
     aria-labelledby="logs-section-title"
   >
-    <SectionHeader
+    <SectionHeader level="h1"
       id="logs-section-title"
       title="运行日志"
     >

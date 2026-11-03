@@ -1,7 +1,7 @@
 <template>
   <el-config-provider :locale="zhCn">
     <section class="page-stack pool-page">
-      <SectionHeader
+      <SectionHeader level="h1"
         title="邮箱池"
       >
         <template #actions

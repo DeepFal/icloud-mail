@@ -29,7 +29,7 @@ const routes = [
         path: "",
         name: "inbox",
         component: () => import("../workspace/InboxView.vue"),
-        meta: { title: "收件箱", subtitle: "查看所有隐私地址的来信" },
+        meta: { title: "收件箱", subtitle: "查看所有隐私地址的来信", split: true },
       },
       {
         path: "services",
@@ -56,13 +56,13 @@ const routes = [
         path: "accounts/new",
         name: "account-new",
         component: () => import("../views/AccountFormView.vue"),
-        meta: { title: "添加主号" },
+        meta: { title: "添加主号", parent: "accounts" },
       },
       {
         path: "accounts/:id/edit",
         name: "account-edit",
         component: () => import("../views/AccountFormView.vue"),
-        meta: { title: "编辑主号" },
+        meta: { title: "编辑主号", parent: "accounts" },
       },
       {
         path: "accounts/:id",
@@ -72,6 +72,7 @@ const routes = [
           title: "主号详情",
           subtitle: "管理 IMAP 连接、同步状态和所属隐私地址",
           dynamicTitle: true,
+          parent: "accounts",
         },
       },
       {

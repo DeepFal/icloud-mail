@@ -5,7 +5,7 @@
     class="page-stack virtual-list-page aliases-page"
     aria-labelledby="aliases-section-title"
   >
-    <SectionHeader
+    <SectionHeader level="h1"
       id="aliases-section-title"
       title="全部隐私地址"
     >
