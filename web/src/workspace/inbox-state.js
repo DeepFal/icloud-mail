@@ -1,6 +1,21 @@
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 
 export const messageKey = (mail) => mail ? `${mail.aliasId}:${mail.mailboxUid}` : "";
+
+// A search-only change waits for a typing pause; any other filter change reloads at once.
+export function watchInboxFilters(filters, { onChange, reload, delay = 250 }) {
+  let timer;
+  const stop = watch(
+    () => [filters.query, filters.folder, filters.accountId, filters.aliasId, filters.groupId, filters.unread, filters.starred, filters.hasOtp],
+    ([, ...others], [, ...previous]) => {
+      clearTimeout(timer);
+      onChange();
+      if (others.every((value, index) => value === previous[index])) timer = setTimeout(reload, delay);
+      else reload();
+    },
+  );
+  return () => { clearTimeout(timer); stop(); };
+}
 
 // List membership and the open reader have separate lifetimes. In particular,
 // marking a message read must not dismiss it from an unread-only reading flow.

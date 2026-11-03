@@ -9,7 +9,7 @@ import { createLiveRefresh } from "../utils/liveRefresh.js";
 import { batchMessages, getMessage, getMessages, messagePath, patchMessage } from "./mail-api.js";
 import { formatMailDate } from "./mail-format.js";
 import { setUnreadBadge } from "../stores/page.js";
-import { messageKey, useInboxMessages } from "./inbox-state.js";
+import { messageKey, useInboxMessages, watchInboxFilters } from "./inbox-state.js";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
 import MailboxProfileDrawer from "./MailboxProfileDrawer.vue";
 import "./inbox.css";
@@ -25,7 +25,7 @@ const groupOptions = computed(() => groups.value.map((item) => ({ value: String(
 const filters = reactive({ folder: "inbox", query: "", accountId: String(route.query.account_id || ""), aliasId: String(route.query.alias_id || ""), groupId: "", unread: false, starred: false, hasOtp: false });
 const inbox = useInboxMessages({ filters, page, getMessages, getMessage, patchMessage, batchMessages, getCsrfToken: () => auth.state.csrfToken, onError: (message) => ElMessage.error(message) });
 const { messages, selected, detail, readerOpen, viewMode, loading, detailLoading, error, detailError, total, unreadCount, busy, pages, selectedIndex, previousMessage, nextMessage, loadList, selectMessage, mutate, batch, cancelList, resetReader } = inbox;
-let searchTimer, metaController, metaVersion = 0, disposed = false;
+let metaController, metaVersion = 0, disposed = false;
 const liveRefresh = createLiveRefresh(() => loadList({ silent: true }));
 const sourcePath = computed(() => selected.value ? messagePath(`/mailboxes/${selected.value.aliasId}/messages/${selected.value.mailboxUid}/source`) : "");
 const hasFilters = computed(() => Boolean(filters.query.trim() || filters.accountId || filters.aliasId || filters.groupId || filters.unread || filters.starred || filters.hasOtp));
@@ -110,17 +110,12 @@ function profileUpdated(profile) {
 }
 function profileEvent(event) { if (event.detail) profileUpdated({ alias_id: event.detail.aliasId, ...event.detail }); }
 function safeHTML(value) { return `<!doctype html><html><head><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"><style>body{font:14px/1.9 system-ui,sans-serif;margin:16px;color:#27312f;overflow-wrap:anywhere}table{border-collapse:collapse;max-width:100%}td,th{border:1px solid #ddd;padding:8px}pre{white-space:pre-wrap}</style></head><body>${value || ""}</body></html>`; }
-watch(() => [filters.folder, filters.accountId, filters.aliasId, filters.groupId, filters.unread, filters.starred, filters.query, filters.hasOtp], (values, previous) => {
-  clearTimeout(searchTimer); cancelList(); resetReader(); checked.clear();
-  const reload = () => { page.value = 1; loadList({ keep: false }); };
-  const onlyQuery = values.slice(0, -1).every((value, index) => value === previous[index]);
-  if (onlyQuery) searchTimer = setTimeout(reload, 250); else reload();
-});
+const stopFilterWatch = watchInboxFilters(filters, { onChange: () => { cancelList(); resetReader(); checked.clear(); }, reload: () => { page.value = 1; loadList({ keep: false }); } });
 watch(unreadCount, (count) => setUnreadBadge(count), { immediate: true });
 watch(() => route.query.account_id, (value) => { filters.accountId = String(value || ""); });
 watch(() => route.query.alias_id, (value) => { filters.aliasId = String(value || ""); });
 onMounted(() => { loadMeta(); loadList(); liveRefresh.start({ immediate: false }); window.addEventListener("icloud:mailbox-profile-updated", profileEvent); });
-onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); disposed = true; metaVersion++; metaController?.abort(); clearTimeout(searchTimer); liveRefresh.stop(); inbox.dispose(); });
+onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); disposed = true; metaVersion++; metaController?.abort(); stopFilterWatch(); liveRefresh.stop(); inbox.dispose(); });
 </script>
 
 <template>

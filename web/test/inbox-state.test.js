@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { reactive, ref } from "vue";
-import { useInboxMessages } from "../src/workspace/inbox-state.js";
+import { nextTick, reactive, ref } from "vue";
+import { useInboxMessages, watchInboxFilters } from "../src/workspace/inbox-state.js";
 
 function deferred() {
   let resolve, reject;
@@ -165,4 +165,37 @@ test("disposing a pending reader cannot send an automatic read write", async () 
   state.dispose(); request.resolve({ text: "late", html: "" }); await pending;
   assert.equal(state.selected.value, null);
   assert.equal(calls.length, 0);
+});
+
+test("search waits for a typing pause while other filters reload at once", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const filters = reactive({ folder: "inbox", query: "", accountId: "", aliasId: "", groupId: "", unread: false, starred: false, hasOtp: false });
+  let changes = 0, reloads = 0;
+  const stop = watchInboxFilters(filters, { onChange: () => { changes++; }, reload: () => { reloads++; } });
+  for (const query of ["v", "ve", "ver"]) {
+    filters.query = query;
+    await nextTick();
+    t.mock.timers.tick(200);
+  }
+  assert.equal(changes, 3);
+  assert.equal(reloads, 0, "keystrokes inside the delay must not request");
+  t.mock.timers.tick(49);
+  assert.equal(reloads, 0);
+  t.mock.timers.tick(1);
+  assert.equal(reloads, 1, "one request after the pause");
+
+  filters.hasOtp = true;
+  await nextTick();
+  assert.equal(reloads, 2, "non-search filters reload immediately");
+  filters.query = "x"; filters.folder = "trash";
+  await nextTick();
+  assert.equal(reloads, 3, "a mixed change reloads immediately");
+  t.mock.timers.tick(1000);
+  assert.equal(reloads, 3, "no debounced search is left behind");
+
+  filters.query = "y";
+  await nextTick();
+  stop();
+  t.mock.timers.tick(1000);
+  assert.equal(reloads, 3, "stopping cancels a pending search");
 });
