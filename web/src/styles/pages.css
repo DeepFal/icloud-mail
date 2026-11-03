@@ -21,7 +21,7 @@
 .pg-select { width: 140px; }
 .pg-bar .el-radio-group { flex-wrap: nowrap; }
 .pg-bar .el-radio-button__inner { padding: 0 10px; height: var(--el-component-size); line-height: calc(var(--el-component-size) - 2px); font-size: 12px; }
-.pg .el-radio-group { --el-radio-button-checked-bg-color: var(--selection-bg); --el-radio-button-checked-text-color: var(--text); --el-radio-button-checked-border-color: var(--border-strong); }
+.pg .el-radio-button { --el-radio-button-checked-bg-color: var(--selection-bg); --el-radio-button-checked-text-color: var(--text); --el-radio-button-checked-border-color: var(--border-strong); }
 .pg .el-radio-button.is-active .el-radio-button__inner { font-weight: 600; }
 
 /* Section heading inside a page (never a second h1). */
