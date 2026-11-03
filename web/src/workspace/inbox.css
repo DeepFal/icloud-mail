@@ -74,9 +74,7 @@
 .active-mail-filters button:hover, .inbox-notice button:hover, .undo-action:hover { text-decoration: underline; text-underline-offset: 3px; }
 .active-mail-filters svg { width: 13px; height: 13px; }
 .inbox-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; padding: 8px 24px; border-bottom: 1px solid var(--border); background: var(--surface-subtle); color: var(--text-secondary); font-size: 12px; flex-shrink: 0; }
-.inbox-feedback.warning { background: var(--warning-soft); color: var(--warning); }
 .inbox-feedback > span { flex: 1; min-width: 150px; line-height: 1.7; }
-.inbox-feedback a { display: inline-flex; align-items: center; gap: 3px; min-height: 32px; color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
 .feedback-dismiss { display: inline-flex; justify-content: center; align-items: center; margin-left: auto; width: 32px; height: 32px; border: 0; border-radius: 5px; background: transparent; color: inherit; }
 .feedback-dismiss:hover { background: var(--surface-subtle); }
 .inbox-notice { padding: 9px 24px; color: var(--warning); font-size: 12px; line-height: 1.7; }
@@ -181,7 +179,7 @@
   .list-refresh { min-height: 44px; padding-inline: 8px; }
   .active-mail-filters { padding: 4px 16px; }
   .inbox-feedback { padding-inline: 16px; }
-  .active-mail-filters button, .inbox-notice button, .undo-action, .feedback-dismiss, .inbox-feedback a { min-height: 44px; }
+  .active-mail-filters button, .inbox-notice button, .undo-action, .feedback-dismiss { min-height: 44px; }
   .feedback-dismiss { width: 44px; }
   .inbox-grid { grid-template-columns: minmax(0, 1fr); min-height: 340px; }
   .message-list { border-right: 0; }

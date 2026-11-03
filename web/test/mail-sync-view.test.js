@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { reactive, ref } from "vue";
+import { createLiveRefresh } from "../src/utils/liveRefresh.js";
+import { useInboxMessages } from "../src/workspace/inbox-state.js";
+import { batchMessages, getMessage, getMessages, patchMessage } from "../src/workspace/mail-api.js";
 
 const syncStatusPath = new URL(
   "../src/components/SyncStatus.vue",
@@ -69,17 +73,41 @@ test("existing sync error summaries open the reusable full log dialog", async ()
   );
 });
 
-test("inbox exposes a single refresh button that lists first and then checks upstream", async () => {
-  const source = await readFile(
-    new URL("../src/workspace/InboxView.vue", import.meta.url),
-    "utf8",
-  );
+const inboxViewPath = new URL("../src/workspace/InboxView.vue", import.meta.url);
+
+test("inbox refresh, mount, polling and filters only reload the local list", async () => {
+  const source = await readFile(inboxViewPath, "utf8");
   assert.equal((source.match(/<Refresh :class/g) || []).length, 1);
-  assert.doesNotMatch(source, /从主号收取|刷新列表|class="mail-sync"/);
-  assert.match(
-    source,
-    /async function refresh\(\) \{[\s\S]*await loadList\(\{ keep: true \}\);[\s\S]*await checkUpstream\(\);/,
-  );
-  assert.match(source, /上游检查中…/);
-  assert.match(source, /上游检查完成于/);
+  assert.match(source, /class="list-refresh" :disabled="loading" @click="loadList\(\)"/);
+  assert.match(source, /createLiveRefresh\(\(\) => loadList\(\{ silent: true \}\)\)/);
+  assert.match(source, /onMounted\(\(\) => \{ loadMeta\(\); loadList\(\); liveRefresh\.start\(/);
+  // The inbox has no path that submits upstream receiving.
+  assert.doesNotMatch(source, /syncAccount|\/sync\b|checkUpstream|上游检查|method:/);
+});
+
+test("inbox list reads never submit receiving to an account", async (t) => {
+  const requests = [];
+  t.mock.method(globalThis, "fetch", async (url, options = {}) => {
+    requests.push(`${options.method || "GET"} ${new URL(String(url), "http://local").pathname}`);
+    const data = { items: [{ alias_id: 1, mailbox_uid: 1, subject: "邮件" }], total: 1, unread_count: 1 };
+    return new Response(JSON.stringify({ data }), { status: 200, headers: { "content-type": "application/json" } });
+  });
+  const filters = reactive({ folder: "inbox", query: "", accountId: "", aliasId: "", groupId: "", unread: false, starred: false, hasOtp: false });
+  const state = useInboxMessages({ filters, page: ref(1), getMessages, getMessage, patchMessage, batchMessages, getCsrfToken: () => "csrf-fixture", onError: assert.fail });
+  const timers = [];
+  const poll = createLiveRefresh(() => state.loadList({ silent: true }), { setTimeoutFn: (callback) => timers.push(callback), clearTimeoutFn: () => {}, documentTarget: null, windowTarget: null, navigatorTarget: null });
+
+  await state.loadList(); // mount
+  await poll.start({ immediate: false });
+  assert.equal(timers.length, 1);
+  timers.shift()();
+  await poll.refreshNow(); // the scheduled poll in flight
+  Object.assign(filters, { folder: "trash", accountId: "7", unread: true, hasOtp: true });
+  await state.loadList({ keep: false }); // filter change
+  await state.loadList(); // the 刷新 button
+  poll.stop(); state.dispose();
+
+  assert.ok(requests.length >= 4);
+  assert.deepEqual(requests.filter((request) => !request.startsWith("GET ")), []);
+  assert.deepEqual(requests.filter((request) => /\/accounts\/[^/]+\/sync/.test(request)), []);
 });
