@@ -77,6 +77,23 @@ html.dark {
   --panel-shadow: none;
 }
 
+:root {
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --toolbar-height: 44px;
+  --radius-control: 6px;
+  --radius-overlay: 8px;
+  --el-font-family: var(--font-ui);
+  --el-font-size-base: 13px;
+  --el-component-size: 28px;
+  --el-component-size-small: 24px;
+  --el-component-size-large: 32px;
+  --el-border-radius-base: var(--radius-control);
+  --el-border-radius-small: 4px;
+}
+@media (max-width: 740px) { :root { --el-component-size: 36px; --el-component-size-large: 40px; } }
+
+/* Element Plus reads only these variables; its dark css-vars are loaded first in main.js. */
 :root, html.dark {
   --el-color-primary: var(--primary);
   --el-color-primary-light-3: color-mix(in srgb, var(--el-color-primary) 70%, var(--surface));
@@ -132,8 +149,18 @@ html.dark {
   --el-fill-color-blank: var(--surface);
   --el-fill-color-dark: var(--border);
   --el-fill-color-darker: var(--border-strong);
+  --el-border-color-dark: var(--border-strong);
+  --el-border-color-darker: var(--border-strong);
+  --el-disabled-bg-color: var(--surface-subtle);
+  --el-disabled-text-color: var(--el-text-color-disabled);
+  --el-disabled-border-color: var(--border);
   --el-mask-color: var(--loading-mask);
+  --el-mask-color-extra-light: color-mix(in srgb, var(--surface) 30%, transparent);
+  --el-overlay-color-lighter: rgb(12 18 28 / 38%);
+  --el-box-shadow: var(--glass-shadow);
   --el-box-shadow-light: var(--glass-shadow);
+  --el-box-shadow-lighter: var(--glass-shadow);
+  --el-box-shadow-dark: var(--glass-shadow);
 }
 
 /* Respect transparency preferences and keep unsupported browsers legible. */

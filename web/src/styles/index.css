@@ -9,8 +9,6 @@
   --sidebar-width: 232px;
   --topbar-height: 64px;
   --content-max: 1440px;
-  --el-border-radius-base: 10px;
-  --el-border-radius-small: 6px;
 }
 
 *,
@@ -1377,13 +1375,18 @@ code {
   background: transparent;
 }
 
-.el-button {
+/* Controls are 28px by default (--el-component-size); `html` outranks the component sheets. */
+html .el-button {
+  height: var(--el-component-size);
   font-weight: 500;
-  min-height: 32px;
-  padding: 0 13px;
-  border-radius: 6px;
+  font-size: 13px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
   transition: background-color 150ms, border-color 150ms;
 }
+html .el-button--small { height: var(--el-component-size-small); padding: 0 8px; font-size: 12px; }
+html .el-button--large { height: var(--el-component-size-large); }
+html .el-select__wrapper { min-height: var(--el-component-size); font-size: 13px; line-height: 20px; }
 
 .el-button:not(.is-text, .is-link, .el-button--primary, .el-button--success, .el-button--warning, .el-button--danger, .el-button--info) {
   --el-button-text-color: var(--text);
@@ -1410,8 +1413,7 @@ code {
   border-radius: 7px;
 }
 .el-button.is-circle {
-  width: 34px;
-  min-height: 34px;
+  width: var(--el-component-size);
   padding: 0;
   border-radius: 6px;
 }
@@ -1519,15 +1521,14 @@ html.dark .el-pagination.is-background .el-pager li.is-active {
 }
 
 .el-input__wrapper,
-.el-textarea__inner,
+.el-textarea__inner {
+  border-radius: var(--radius-control);
+}
+
 .el-alert,
 .el-notification,
 .el-drawer {
-  border-radius: 10px;
-}
-
-.el-input__wrapper {
-  min-height: 38px;
+  border-radius: var(--radius-overlay);
 }
 
 .el-alert {

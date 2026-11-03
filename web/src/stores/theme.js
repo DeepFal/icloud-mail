@@ -24,6 +24,8 @@ function applyTheme() {
   document.documentElement.classList.toggle("dark", dark);
   document.documentElement.style.colorScheme = resolvedTheme.value;
   document.documentElement.style.backgroundColor = "";
+  // Matches --app-bg so the browser chrome blends with the top bar.
+  document.querySelector?.('meta[name="theme-color"]')?.setAttribute("content", dark ? "#18191b" : "#f7f7f5");
 }
 
 const resolvedTheme = computed(() =>

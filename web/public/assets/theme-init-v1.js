@@ -7,5 +7,7 @@
   root.classList.toggle("dark", dark);
   root.dataset.theme = dark ? "dark" : "light";
   root.style.colorScheme = dark ? "dark" : "light";
-  root.style.backgroundColor = dark ? "#11151d" : "#edf1f7";
+  root.style.backgroundColor = dark ? "#18191b" : "#f7f7f5";
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", dark ? "#18191b" : "#f7f7f5");
 })();
