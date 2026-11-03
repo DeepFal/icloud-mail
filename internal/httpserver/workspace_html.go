@@ -1,83 +1,61 @@
 package httpserver
 
 import (
-	"html"
 	"net/url"
-	"strconv"
+	"regexp"
 	"strings"
 	"unicode"
 
+	"github.com/microcosm-cc/bluemonday"
 	htmlnode "golang.org/x/net/html"
 )
 
-var workspaceHTMLAllowed = map[string]bool{"p": true, "br": true, "div": true, "span": true, "strong": true, "b": true, "em": true, "i": true, "u": true, "ul": true, "ol": true, "li": true, "blockquote": true, "pre": true, "code": true, "table": true, "thead": true, "tbody": true, "tfoot": true, "tr": true, "th": true, "td": true, "h1": true, "h2": true, "h3": true, "h4": true, "h5": true, "h6": true, "hr": true}
-var workspaceHTMLDrop = map[string]bool{"script": true, "style": true, "iframe": true, "object": true, "embed": true, "form": true, "svg": true, "math": true, "template": true, "head": true, "input": true, "button": true, "link": true, "meta": true}
+// Email HTML is shown in an iframe with sandbox="" and a CSP that only allows
+// inline styles and data: images. The policy keeps the presentational markup
+// mail layouts depend on (inline CSS, table attributes, classes) and removes
+// scripts, event handlers, forms and embedded content. <style> blocks are
+// dropped; remote image URLs are dropped while their alt text and box stay.
+var workspaceHTMLPolicy = newWorkspaceHTMLPolicy()
+
+var workspaceHTMLColor = regexp.MustCompile(`^(#[0-9a-fA-F]{3,8}|[0-9a-fA-F]{6}|[a-zA-Z]{3,20})$`)
+
+var workspaceEmailStyles = []string{
+	"background", "background-color", "border", "border-top", "border-right", "border-bottom", "border-left",
+	"border-color", "border-style", "border-width", "border-radius", "border-collapse", "border-spacing",
+	"color", "display", "font", "font-family", "font-size", "font-style", "font-weight", "height", "max-height",
+	"min-height", "width", "max-width", "min-width", "letter-spacing", "line-height", "list-style-type",
+	"margin", "margin-top", "margin-right", "margin-bottom", "margin-left", "opacity", "overflow",
+	"padding", "padding-top", "padding-right", "padding-bottom", "padding-left", "table-layout",
+	"text-align", "text-decoration", "text-indent", "text-transform", "vertical-align", "visibility",
+	"white-space", "word-break", "word-wrap", "overflow-wrap",
+}
+
+func newWorkspaceHTMLPolicy() *bluemonday.Policy {
+	p := bluemonday.UGCPolicy()
+	p.AllowRelativeURLs(false)
+	p.AddTargetBlankToFullyQualifiedLinks(true) // inert under sandbox=""; hover still shows the target
+	p.RequireNoReferrerOnLinks(true)
+	p.AllowDataURIImages()
+	p.RewriteSrc(func(u *url.URL) { // remote images keep alt and size but are never fetched
+		if u.Scheme != "data" {
+			*u = url.URL{}
+		}
+	})
+	p.AllowStyling()
+	p.AllowStyles(workspaceEmailStyles...).Globally()
+	p.AllowElements("center", "header", "footer", "main", "nav")
+	p.AllowAttrs("color").Matching(workspaceHTMLColor).OnElements("font")
+	p.AllowAttrs("face").Matching(bluemonday.Paragraph).OnElements("font")
+	p.AllowAttrs("size").Matching(regexp.MustCompile(`^[-+]?[1-7]$`)).OnElements("font")
+	p.AllowAttrs("align").Matching(bluemonday.CellAlign).OnElements("table", "div", "p", "h1", "h2", "h3", "h4", "h5", "h6")
+	p.AllowAttrs("bgcolor").Matching(workspaceHTMLColor).OnElements("table", "thead", "tbody", "tfoot", "tr", "td", "th")
+	p.AllowAttrs("cellpadding", "cellspacing", "border").Matching(bluemonday.Integer).OnElements("table")
+	p.AllowAttrs("border").Matching(bluemonday.Integer).OnElements("img")
+	return p
+}
 
 func sanitizeWorkspaceHTML(src string) string {
-	doc, err := htmlnode.Parse(strings.NewReader(src))
-	if err != nil {
-		return ""
-	}
-	var out strings.Builder
-	visited := 0
-	var visit func(*htmlnode.Node, int)
-	visit = func(n *htmlnode.Node, depth int) {
-		visited++
-		if depth > 128 || visited > 100000 {
-			return
-		}
-		if n.Type == htmlnode.TextNode {
-			out.WriteString(html.EscapeString(n.Data))
-			return
-		}
-		if n.Type == htmlnode.CommentNode {
-			return
-		}
-		tag := strings.ToLower(n.Data)
-		if n.Type == htmlnode.ElementNode && workspaceHTMLDrop[tag] {
-			return
-		}
-		if tag == "img" {
-			for _, a := range n.Attr {
-				if strings.EqualFold(a.Key, "alt") {
-					out.WriteString(html.EscapeString(a.Val))
-				}
-			}
-			return
-		}
-		allowed := n.Type == htmlnode.ElementNode && workspaceHTMLAllowed[tag]
-		if allowed {
-			out.WriteByte('<')
-			out.WriteString(tag)
-			if tag == "td" || tag == "th" {
-				for _, a := range n.Attr {
-					key := strings.ToLower(a.Key)
-					if key != "colspan" && key != "rowspan" {
-						continue
-					}
-					v, e := strconv.Atoi(a.Val)
-					if e == nil && v >= 1 && v <= 100 {
-						out.WriteByte(' ')
-						out.WriteString(key)
-						out.WriteString(`="`)
-						out.WriteString(strconv.Itoa(v))
-						out.WriteByte('"')
-					}
-				}
-			}
-			out.WriteByte('>')
-		}
-		for child := n.FirstChild; child != nil; child = child.NextSibling {
-			visit(child, depth+1)
-		}
-		if allowed && tag != "br" && tag != "hr" {
-			out.WriteString("</")
-			out.WriteString(tag)
-			out.WriteByte('>')
-		}
-	}
-	visit(doc, 0)
-	return out.String()
+	return workspaceHTMLPolicy.Sanitize(src)
 }
 
 type workspaceLink struct {
