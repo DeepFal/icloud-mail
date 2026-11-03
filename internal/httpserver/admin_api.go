@@ -157,6 +157,7 @@ type adminAPIAccountDTO struct {
 	Provider         string                   `json:"provider"`
 	EmailSuffix      string                   `json:"email_suffix"`
 	SyncProgress     *adminAPISyncProgressDTO `json:"sync_progress,omitempty"`
+	Apple            *adminAPIAccountAppleDTO `json:"apple,omitempty"`
 }
 
 type adminAPISyncProgressDTO struct {
@@ -906,8 +907,12 @@ func (s *Server) adminAPIListAccounts(c *gin.Context) {
 		s.writeAdminAPIInternalError(c, err)
 		return
 	}
+	items := s.adminAPIAccountsFromDomain(page.Items)
+	for i, account := range page.Items {
+		items[i].Apple = s.adminAPIAppleHealth(c.Request.Context(), account)
+	}
 	writeAdminAPIData(c, http.StatusOK, gin.H{
-		"items":      s.adminAPIAccountsFromDomain(page.Items),
+		"items":      items,
 		"pagination": adminAPIPagination(limit, offset, page.Total),
 	})
 }

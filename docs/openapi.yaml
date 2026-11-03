@@ -2340,6 +2340,38 @@ components:
           description: 自定义邮箱生成使用的后缀；iCloud 模式为空字符串。
         sync_progress:
           $ref: "#/components/schemas/AdminSyncProgress"
+        apple:
+          $ref: "#/components/schemas/AdminAccountAppleHealth"
+
+    AdminAccountAppleHealth:
+      type: object
+      additionalProperties: false
+      description: |
+        仅主号列表返回，只读取本地已保存的状态，不访问 Apple。已停用主号、自定义邮箱主号或
+        Apple 服务未装配时省略。
+      required: [web, account, keep_alive, creation_cooldown_until, needs_attention]
+      properties:
+        web:
+          type: string
+          enum: [healthy, expired, not_connected, unknown]
+          description: iCloud 网页通道；`expired` 表示曾经连接但会话已失效。
+        account:
+          type: string
+          enum: [healthy, retry_wait, expired, not_connected, unknown]
+          description: Apple Account 通道；`retry_wait` 表示保活刷新失败、正在退避重试。
+        keep_alive:
+          type: string
+          enum: [disabled, idle, logging_in, waiting_code, authenticated, retry_wait, needs_action, unknown]
+          description: 自动保活状态，取两条通道中最需要关注的一个；`needs_action` 表示需要人工处理。
+        creation_cooldown_until:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 两条创建通道中最晚的本地冷却截止时间；没有进行中的冷却时为 null。
+        needs_attention:
+          type: boolean
+          description: 任一通道会话已失效，或自动保活为 `needs_action`。从未连接 Apple 不算需处理。
 
     AdminAccountDetail:
       type: object

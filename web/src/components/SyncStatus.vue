@@ -8,6 +8,9 @@
       ></span>
       {{ status.label }}
     </el-tag>
+    <el-tag v-if="item.enabled && item.apple?.needsAttention" type="danger" effect="plain" size="small" round>
+      Apple 连接异常
+    </el-tag>
     <div
       v-if="progress.active"
       class="sync-status__progress"
@@ -86,7 +89,7 @@ const status = computed(() => {
     return { label: "正常", type: "success" };
   }
   if (props.item.lastSyncStatus === "error") {
-    return { label: "同步异常", type: "danger" };
+    return { label: "收件异常", type: "danger" };
   }
   return { label: "待同步", type: "warning" };
 });

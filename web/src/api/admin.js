@@ -161,6 +161,18 @@ export function normalizeAccount(raw = {}) {
     ),
     aliasCount:
       Number(firstDefined(raw, "alias_count", "aliasCount", "AliasCount")) || 0,
+    apple: normalizeAppleHealth(raw.apple),
+  };
+}
+
+function normalizeAppleHealth(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return {
+    web: raw.web || "unknown",
+    account: raw.account || "unknown",
+    keepAlive: raw.keep_alive || "disabled",
+    creationCooldownUntil: raw.creation_cooldown_until || null,
+    needsAttention: raw.needs_attention === true,
   };
 }
 
