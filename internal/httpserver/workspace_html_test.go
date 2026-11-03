@@ -42,15 +42,40 @@ func TestSanitizeWorkspaceHTMLKeepsTableAndInlineStyles(t *testing.T) {
 	}
 }
 
-func TestSanitizeWorkspaceHTMLImagesAndLinksStayInert(t *testing.T) {
-	out := sanitizeWorkspaceHTML(`<img src="https://img.example.test/hero.jpg" width="600" height="220" alt="秋季上新"><img src="data:image/png;base64,iVBORw0KGgo=" alt="内嵌"><a href="https://shop.example.test/new">选购</a><a href="/relative">相对</a>`)
-	for _, want := range []string{`<img src="" width="600" height="220" alt="秋季上新">`, `src="data:image/png;base64,iVBORw0KGgo="`, `target="_blank"`, `noreferrer`, `noopener`, "相对"} {
+func TestSanitizeWorkspaceHTMLBlocksRemoteImagesAndOpensLinksInNewTab(t *testing.T) {
+	out := sanitizeWorkspaceHTML(`<img src="https://img.example.test/hero.jpg" width="600" height="220" alt="秋季上新"><img src="data:image/png;base64,iVBORw0KGgo=" alt="内嵌"><a href="https://shop.example.test/new" target="_self" rel="opener">选购</a><a href="/relative">相对</a>`)
+	for _, want := range []string{`<img src="" width="600" height="220" alt="秋季上新">`, `src="data:image/png;base64,iVBORw0KGgo="`, `<a href="https://shop.example.test/new" rel="nofollow noreferrer noopener" target="_blank">选购</a>`, "相对"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in %s", want, out)
 		}
 	}
 	if strings.Contains(out, "img.example.test") || strings.Contains(out, `href="/relative"`) {
 		t.Fatalf("remote image or relative link kept: %s", out)
+	}
+}
+
+func TestSanitizeWorkspaceHTMLLinksKeepOnlyWebAndMailtoSchemes(t *testing.T) {
+	in := `<a href="http://plain.example.test/a">明文</a><a href="mailto:hi@example.test">写信</a>` +
+		`<a href="  javascript:alert(1)">脚本</a><a href="JaVaScRiPt:alert(2)">大小写</a><a href="java&#x73;cript:alert(3)">实体</a><a href="vbscript:x">VB</a><a href="file:///etc/passwd">文件</a>` +
+		`<a href="data:text/html,<script>alert(4)</script>">网页</a><a href="DATA:image/png;base64,iVBORw0KGgo=">图链</a>` +
+		`<img src="data:image/png;base64,iVBORw0KGgo=" usemap="#m"><map name="m"><area shape="rect" coords="0,0,1,1" href="data:image/png;base64,iVBORw0KGgo=" alt="热区"></map>`
+	out := sanitizeWorkspaceHTML(in)
+	for _, want := range []string{
+		`<a href="http://plain.example.test/a" rel="nofollow noreferrer noopener" target="_blank">明文</a>`,
+		`<a href="mailto:hi@example.test" rel="nofollow noreferrer">写信</a>`,
+		`<a rel="nofollow noreferrer">图链</a>`, `<area shape="rect" coords="0,0,1,1" alt="热区" rel="nofollow noreferrer">`,
+		`<img src="data:image/png;base64,iVBORw0KGgo=" usemap="#m">`,
+		"脚本", "大小写", "实体", "VB", "文件", "网页",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in %s", want, out)
+		}
+	}
+	lower := strings.ToLower(out)
+	for _, bad := range []string{"javascript", "vbscript", "file:", "alert", `href="data:`, "text/html"} {
+		if strings.Contains(lower, bad) {
+			t.Fatalf("output contains %q: %s", bad, out)
+		}
 	}
 }
 

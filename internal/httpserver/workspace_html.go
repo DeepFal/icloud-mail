@@ -10,12 +10,20 @@ import (
 	htmlnode "golang.org/x/net/html"
 )
 
-// Email HTML is shown in an iframe with sandbox="" and a CSP that only allows
-// inline styles and data: images. The policy keeps the presentational markup
-// mail layouts depend on (inline CSS, table attributes, classes) and removes
-// scripts, event handlers, forms and embedded content. <style> blocks are
-// dropped; remote image URLs are dropped while their alt text and box stay.
+// Email HTML is shown in an iframe sandboxed without allow-scripts (popups
+// only, so links can open) and a CSP that only allows inline styles and data:
+// images. The policy keeps the presentational markup mail layouts depend on
+// (inline CSS, table attributes, classes) and removes scripts, event handlers,
+// forms and embedded content. <style> blocks are dropped; remote image URLs are
+// dropped while their alt text and box stay. Links keep only http, https and
+// mailto URLs and open in a new tab without opener or referrer.
 var workspaceHTMLPolicy = newWorkspaceHTMLPolicy()
+
+// AllowDataURIImages registers data: for every URL attribute, so links would
+// accept data:image/… too; bluemonday cannot scope a scheme to <img>, so the
+// href is removed from its output, where attribute values are escaped and
+// double-quoted.
+var workspaceDataLink = regexp.MustCompile(`(<(?:a|area)\b[^>]*?)\s+href="data:[^"]*"`)
 
 var workspaceHTMLColor = regexp.MustCompile(`^(#[0-9a-fA-F]{3,8}|[0-9a-fA-F]{6}|[a-zA-Z]{3,20})$`)
 
@@ -33,8 +41,10 @@ var workspaceEmailStyles = []string{
 func newWorkspaceHTMLPolicy() *bluemonday.Policy {
 	p := bluemonday.UGCPolicy()
 	p.AllowRelativeURLs(false)
-	p.AddTargetBlankToFullyQualifiedLinks(true) // inert under sandbox=""; hover still shows the target
+	p.AllowURLSchemes("http", "https", "mailto")
+	p.AddTargetBlankToFullyQualifiedLinks(true) // also adds rel="noopener"
 	p.RequireNoReferrerOnLinks(true)
+	p.RequireNoFollowOnLinks(true)
 	p.AllowDataURIImages()
 	p.RewriteSrc(func(u *url.URL) { // remote images keep alt and size but are never fetched
 		if u.Scheme != "data" {
@@ -55,7 +65,7 @@ func newWorkspaceHTMLPolicy() *bluemonday.Policy {
 }
 
 func sanitizeWorkspaceHTML(src string) string {
-	return workspaceHTMLPolicy.Sanitize(src)
+	return workspaceDataLink.ReplaceAllString(workspaceHTMLPolicy.Sanitize(src), "$1")
 }
 
 type workspaceLink struct {
