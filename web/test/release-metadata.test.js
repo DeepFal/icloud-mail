@@ -17,6 +17,7 @@ test("release version matches package metadata and public documentation", async 
   assert.deepEqual(lock.packages[""].devDependencies, manifest.devDependencies);
   assert.ok((await read("DELIVERY.md")).includes("`" + version + "`"));
   assert.ok((await read("CHANGELOG.md")).includes("## Unreleased"));
+  assert.ok((await read("internal/httpserver/docs.html")).includes("· v" + version + "。"), "docs.html version must match VERSION");
   const offline = await read("compose.offline.yaml");
   assert.ok(offline.includes("image: ghcr.io/deepfal/icloud-mail:${ICLOUD_MAIL_VERSION:-v" + version + "}\n"));
   assert.ok(offline.includes("image: ghcr.io/deepfal/icloud-mail-postgres:${ICLOUD_MAIL_VERSION:-v" + version + "}\n"));

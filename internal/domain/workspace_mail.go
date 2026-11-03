@@ -11,6 +11,7 @@ type WorkspaceMailFilter struct {
 	Folder    string
 	Unread    bool
 	Starred   bool
+	HasOTP    bool
 	Limit     int
 	Offset    int
 }
@@ -47,4 +48,10 @@ type WorkspaceMailPatch struct {
 	Starred  *bool `json:"starred"`
 	Archived *bool `json:"archived"`
 	Deleted  *bool `json:"deleted"`
+}
+
+// WorkspaceMailRef identifies one message in a mailbox, as the single-message routes do.
+type WorkspaceMailRef struct {
+	AliasID    int64  `json:"alias_id"`
+	MailboxUID uint32 `json:"mailbox_uid"`
 }

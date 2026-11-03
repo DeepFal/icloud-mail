@@ -75,6 +75,9 @@ func workspaceWhere(f domain.WorkspaceMailFilter) (string, []any) {
 	if f.Starred {
 		w = append(w, "COALESCE(ws.starred,FALSE)=TRUE")
 	}
+	if f.HasOTP {
+		w = append(w, "COALESCE(am.otp,'')<>''")
+	}
 	return strings.Join(w, " AND "), a
 }
 
@@ -128,6 +131,7 @@ func (s *Store) ListWorkspaceMail(ctx context.Context, f domain.WorkspaceMailFil
 	base.Folder = "all"
 	base.Unread = false
 	base.Starred = false
+	base.HasOTP = false
 	bw, ba := workspaceWhere(base)
 	unreadSQL := ` FROM alias_messages am JOIN archived_messages m ON m.id=am.message_id JOIN aliases al ON al.id=am.alias_id LEFT JOIN mail_groups mg ON mg.id=al.group_id LEFT JOIN workspace_mail_states ws ON ws.alias_id=am.alias_id AND ws.message_id=am.message_id AND ws.admin_id=? WHERE ` + bw + ` AND COALESCE(ws.read,FALSE)=FALSE`
 	if err := s.queryRowContext(ctx, "SELECT COUNT(*)"+unreadSQL, append([]any{f.AdminID}, ba...)...).Scan(&page.UnreadCount); err != nil {
@@ -170,15 +174,49 @@ func (s *Store) PatchWorkspaceMail(ctx context.Context, adminID, aliasID int64, 
 		return domain.WorkspaceMailItem{}, err
 	}
 	defer tx.Rollback()
-	var mid int64
-	if err = s.txQueryRowContext(ctx, tx, `SELECT message_id FROM alias_messages WHERE alias_id=? AND mailbox_uid=?`, aliasID, int64(uid)).Scan(&mid); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return domain.WorkspaceMailItem{}, ErrNotFound
-		}
+	if err = s.patchWorkspaceMailTx(ctx, tx, adminID, aliasID, uid, p); err != nil {
 		return domain.WorkspaceMailItem{}, err
 	}
-	if _, err = s.txExecContext(ctx, tx, `INSERT INTO workspace_mail_states(admin_id,alias_id,message_id,updated_at) VALUES(?,?,?,?) ON CONFLICT(admin_id,alias_id,message_id) DO NOTHING`, adminID, aliasID, mid, timestamp(s.now())); err != nil {
+	if err = tx.Commit(); err != nil {
 		return domain.WorkspaceMailItem{}, err
+	}
+	return s.GetWorkspaceMail(ctx, adminID, aliasID, uid)
+}
+
+// PatchWorkspaceMailBatch applies one patch to every message or none: an
+// unknown message rolls the whole batch back with ErrNotFound.
+func (s *Store) PatchWorkspaceMailBatch(ctx context.Context, adminID int64, refs []domain.WorkspaceMailRef, p domain.WorkspaceMailPatch) error {
+	if adminID < 1 || len(refs) == 0 {
+		return ErrWorkspaceMailInput
+	}
+	for _, ref := range refs {
+		if ref.AliasID < 1 || ref.MailboxUID < 1 {
+			return ErrWorkspaceMailInput
+		}
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, ref := range refs {
+		if err = s.patchWorkspaceMailTx(ctx, tx, adminID, ref.AliasID, ref.MailboxUID, p); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *Store) patchWorkspaceMailTx(ctx context.Context, tx *sql.Tx, adminID, aliasID int64, uid uint32, p domain.WorkspaceMailPatch) error {
+	var mid int64
+	if err := s.txQueryRowContext(ctx, tx, `SELECT message_id FROM alias_messages WHERE alias_id=? AND mailbox_uid=?`, aliasID, int64(uid)).Scan(&mid); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if _, err := s.txExecContext(ctx, tx, `INSERT INTO workspace_mail_states(admin_id,alias_id,message_id,updated_at) VALUES(?,?,?,?) ON CONFLICT(admin_id,alias_id,message_id) DO NOTHING`, adminID, aliasID, mid, timestamp(s.now())); err != nil {
+		return err
 	}
 	sets := []string{}
 	vals := []any{}
@@ -198,15 +236,11 @@ func (s *Store) PatchWorkspaceMail(ctx context.Context, adminID, aliasID int64, 
 		sets = append(sets, "deleted=?")
 		vals = append(vals, *p.Deleted)
 	}
-	if len(sets) > 0 {
-		sets = append(sets, "updated_at=?")
-		vals = append(vals, timestamp(s.now()), adminID, aliasID, mid)
-		if _, err = s.txExecContext(ctx, tx, `UPDATE workspace_mail_states SET `+strings.Join(sets, ",")+` WHERE admin_id=? AND alias_id=? AND message_id=?`, vals...); err != nil {
-			return domain.WorkspaceMailItem{}, err
-		}
+	if len(sets) == 0 {
+		return nil
 	}
-	if err = tx.Commit(); err != nil {
-		return domain.WorkspaceMailItem{}, err
-	}
-	return s.GetWorkspaceMail(ctx, adminID, aliasID, uid)
+	sets = append(sets, "updated_at=?")
+	vals = append(vals, timestamp(s.now()), adminID, aliasID, mid)
+	_, err := s.txExecContext(ctx, tx, `UPDATE workspace_mail_states SET `+strings.Join(sets, ",")+` WHERE admin_id=? AND alias_id=? AND message_id=?`, vals...)
+	return err
 }

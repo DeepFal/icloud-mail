@@ -57,3 +57,14 @@ export function loginNoticeType(notice = "") {
     ? "success"
     : "warning";
 }
+
+// 登录成功、已登录访问 /login、404 返回首页共用：有主号去收件箱，没有则去主号页引导添加。
+// 列表读取失败时按已有主号处理，收件箱自带空态与错误提示。
+export async function resolveLandingRoute(fetchAccountPage) {
+  try {
+    const page = await fetchAccountPage({ limit: 1 });
+    return page?.items?.length ? { name: "inbox" } : { name: "accounts" };
+  } catch {
+    return { name: "inbox" };
+  }
+}

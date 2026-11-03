@@ -16,11 +16,13 @@
 import { Back, Warning } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 
+import { getAccountPage } from "../api/admin.js";
 import AppBrand from "../components/AppBrand.vue";
+import { resolveLandingRoute } from "../utils/authFlow.js";
 
 const router = useRouter();
 
-function returnHome() {
-  router.replace({ name: "accounts" });
+async function returnHome() {
+  router.replace(await resolveLandingRoute(getAccountPage));
 }
 </script>

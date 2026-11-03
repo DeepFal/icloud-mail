@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -97,5 +98,108 @@ func TestWorkspaceMIMEFilenameAndMetadataBudget(t *testing.T) {
 	}
 	if got := workspaceFilename("../../bad\r\nname.txt"); got != "badname.txt" {
 		t.Fatalf("unsafe attachment filename=%q", got)
+	}
+}
+
+func TestWorkspaceMailBatchStateAndHasOTPFilter(t *testing.T) {
+	env := newAdminAPITestEnv(t)
+	ctx := context.Background()
+	if err := env.store.ConfigureMailArchive(t.TempDir(), 4<<20); err != nil {
+		t.Fatal(err)
+	}
+	account := adminAPITestCreateAccount(t, env, "ws-batch-owner@icloud.com")
+	alias, _ := createV2AliasFixture(t, env, account.ID, "ws-batch@example.test")
+	fresh, err := env.store.GetAccount(ctx, account.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	received := time.Now().UTC()
+	archived := func(uid uint32, subject, otp string) domain.ArchivedMessage {
+		return domain.ArchivedMessage{AccountID: account.ID, UIDValidity: 4, UID: uid, InternalDate: received, Subject: subject, From: []domain.MailAddress{{Email: "sender@example.test"}}, RawMIME: []byte(workspaceFixtureMIME), AliasIDs: []int64{alias.ID}, OTP: otp}
+	}
+	result := domain.MailboxSyncResult{State: domain.IMAPSyncState{AccountID: account.ID, UIDValidity: 4, LastUID: 11, UpdatedAt: received}, Reset: true, ArchivedMessages: []domain.ArchivedMessage{archived(10, "with code", "123456"), archived(11, "no code", "")}}
+	if err := env.store.ApplyMailboxSync(ctx, account.ID, fresh.UpdatedAt, []domain.Alias{alias}, result, received); err != nil {
+		t.Fatal(err)
+	}
+	cookie, csrf, _ := env.createSession(t, "workspace-batch-admin", "test-password")
+	cookies := []*http.Cookie{cookie}
+	items := fmt.Sprintf(`[{"alias_id":%d,"mailbox_uid":1},{"alias_id":%d,"mailbox_uid":2}]`, alias.ID, alias.ID)
+	post := func(body, token string) *httptest.ResponseRecorder {
+		return env.request(t, http.MethodPost, "/admin/api/v1/messages/batch", []byte(body), "application/json", cookies, token)
+	}
+	count := func(query string) int {
+		t.Helper()
+		r := env.request(t, http.MethodGet, "/admin/api/v1/messages?"+query, nil, "", cookies, "")
+		var page struct {
+			Data struct {
+				Total int `json:"total"`
+			} `json:"data"`
+		}
+		if r.Code != 200 || json.Unmarshal(r.Body.Bytes(), &page) != nil {
+			t.Fatalf("list %s=%d %s", query, r.Code, r.Body.String())
+		}
+		return page.Data.Total
+	}
+
+	if r := env.request(t, http.MethodPost, "/admin/api/v1/messages/batch", []byte(`{}`), "application/json", nil, ""); r.Code != 401 {
+		t.Fatalf("unauthenticated=%d", r.Code)
+	}
+	if r := post(`{"action":"read","items":`+items+`}`, ""); r.Code != 403 {
+		t.Fatalf("missing csrf=%d", r.Code)
+	}
+	if count("unread=1") != 2 || count("has_otp=1") != 1 {
+		t.Fatal("unexpected initial counts")
+	}
+	if r := env.request(t, http.MethodGet, "/admin/api/v1/messages?has_otp=maybe", nil, "", cookies, ""); r.Code != 400 {
+		t.Fatalf("invalid has_otp=%d", r.Code)
+	}
+
+	// Invalid action, empty list, over the limit and malformed refs are rejected.
+	for name, body := range map[string]string{
+		"unknown action": `{"action":"purge","items":` + items + `}`,
+		"empty items":    `{"action":"read","items":[]}`,
+		"zero uid":       fmt.Sprintf(`{"action":"read","items":[{"alias_id":%d,"mailbox_uid":0}]}`, alias.ID),
+		"over limit":     `{"action":"read","items":[` + strings.TrimSuffix(strings.Repeat(`{"alias_id":1,"mailbox_uid":1},`, workspaceMailBatchLimit+1), ",") + `]}`,
+	} {
+		if r := post(body, csrf); r.Code != 400 {
+			t.Fatalf("%s=%d %s", name, r.Code, r.Body.String())
+		}
+	}
+	if count("unread=1") != 2 {
+		t.Fatal("rejected batch changed state")
+	}
+
+	// A missing message rolls the whole batch back.
+	missing := fmt.Sprintf(`{"action":"read","items":[{"alias_id":%d,"mailbox_uid":1},{"alias_id":%d,"mailbox_uid":99}]}`, alias.ID, alias.ID)
+	if r := post(missing, csrf); r.Code != 404 {
+		t.Fatalf("missing id=%d %s", r.Code, r.Body.String())
+	}
+	if count("unread=1") != 2 {
+		t.Fatal("partial batch was committed")
+	}
+	otherAlias := fmt.Sprintf(`{"action":"read","items":[{"alias_id":%d,"mailbox_uid":1}]}`, alias.ID+100)
+	if r := post(otherAlias, csrf); r.Code != 404 {
+		t.Fatalf("unknown alias=%d", r.Code)
+	}
+
+	for _, step := range []struct {
+		action string
+		query  string
+		want   int
+	}{
+		{"read", "unread=1", 0},
+		{"unread", "unread=1", 2},
+		{"archive", "folder=archived", 2},
+		{"unarchive", "folder=archived", 0},
+		{"trash", "folder=trash", 2},
+		{"restore", "folder=trash", 0},
+	} {
+		r := post(`{"action":"`+step.action+`","items":`+items+`}`, csrf)
+		if r.Code != 200 || !strings.Contains(r.Body.String(), `"updated":2`) {
+			t.Fatalf("%s=%d %s", step.action, r.Code, r.Body.String())
+		}
+		if got := count(step.query); got != step.want {
+			t.Fatalf("after %s %s = %d, want %d", step.action, step.query, got, step.want)
+		}
 	}
 }

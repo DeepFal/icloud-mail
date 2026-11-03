@@ -1,6 +1,6 @@
 <template>
   <div class="creation-job-panel">
-    <h2 id="batch-creation-title" class="creation-job-panel__title">批量创建隐私邮箱</h2>
+    <h2 id="batch-creation-title" class="creation-job-panel__title">批量创建隐私地址</h2>
     <div class="creation-job-panel__controls">
       <el-input-number v-model="count" :min="1" :max="100" :controls="false" aria-label="创建数量" :disabled="active || starting" />
       <el-select v-model="intervalSeconds" aria-label="创建间隔" :disabled="active || starting" class="creation-job-panel__interval">

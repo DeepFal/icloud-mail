@@ -36,7 +36,7 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build --wait
 docker compose -f compose.yaml -f compose.build.yaml ps
 ```
 
-Once the target version is published to GHCR, you can use `ghcr.io/deepfal/icloud-mail` and `ghcr.io/deepfal/icloud-mail-postgres`: set `ICLOUD_MAIL_VERSION=v0.2.9` in `.env`, then run `docker compose pull` and `docker compose up -d --wait`. Both images use the same version. Use the source build above until the first image publication completes. OCI labels record the full commit, version, and source repository; see [DELIVERY.md](DELIVERY.md#ghcr-镜像) for verification.
+Once the target version is published to GHCR, you can use `ghcr.io/deepfal/icloud-mail` and `ghcr.io/deepfal/icloud-mail-postgres`: set `ICLOUD_MAIL_VERSION=v0.2.10` in `.env`, then run `docker compose pull` and `docker compose up -d --wait`. Both images use the same version. Use the source build above until the first image publication completes. OCI labels record the full commit, version, and source repository; see [DELIVERY.md](DELIVERY.md#ghcr-镜像) for verification.
 
 With the example configuration, the dashboard is at `http://127.0.0.1:8788/admin/` and the username is `admin`. The generated management path and password are stored in the container's keys volume:
 
@@ -52,6 +52,25 @@ For a remote server, use an SSH tunnel to reach the dashboard:
 ```sh
 ssh -N -L 127.0.0.1:8788:127.0.0.1:8788 USER@SERVER
 ```
+
+### Forgot the admin password
+
+Run the `admin reset` subcommand from the project directory. It resets the admin credentials, signs out all existing sessions, and prints the current username: `ICLOUD_API_ADMIN_USER` from `.env`, or `admin` when unset:
+
+```sh
+docker compose -f compose.yaml -f compose.build.yaml run --rm --no-deps icloud-api admin reset
+```
+
+Where the password comes from after the reset:
+
+- `ICLOUD_API_ADMIN_PASSWORD` is set in `.env`: the password is that configured value; sign in with it. No `admin-password` file is kept in the keys volume in this case.
+- Not set: an existing `admin-password` in the keys volume is reused; a new random password is generated and written only when that file does not exist. Read it while the service is running (run `docker compose up -d --wait` first if needed):
+
+```sh
+docker compose -f compose.yaml -f compose.build.yaml exec -T icloud-api cat /app/keys/admin-password
+```
+
+For image installs, drop `-f compose.build.yaml`.
 
 Back up the database, keys, and mail archive before updates; preserve `.env` and existing data volumes. See [DELIVERY.md](DELIVERY.md) and the [public deployment guide](docs/PUBLIC.md) for installation, backups, migration, and public HTTPS.
 

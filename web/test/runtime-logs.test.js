@@ -235,7 +235,7 @@ test("automatic creation flow fields normalize from top-level and grouped attrib
     id: 92,
     created_at: "2026-08-09T08:03:00Z",
     level: "WARN",
-    message: "自动创建隐私邮箱失败",
+    message: "自动创建隐私地址失败",
     attributes: {
       account_id: "12",
       "autocreate.auto_create_run_id": "auto-run-7",
@@ -438,15 +438,15 @@ test("runtime log display metadata and attributes remain predictable", () => {
   assert.equal(runtimeLogAutoCreateStageLabel("preparing"), "准备自动创建");
   assert.equal(
     runtimeLogAutoCreateStageLabel("checking_forwarding"),
-    "核对隐私邮箱转发目标",
+    "核对隐私地址转发目标",
   );
   assert.equal(
     runtimeLogAutoCreateStageLabel("initializing_forwarding"),
-    "初始化隐私邮箱转发目标",
+    "初始化隐私地址转发目标",
   );
   assert.equal(
     runtimeLogAutoCreateStageLabel("reconciling"),
-    "等待并核对 Apple 隐私邮箱目录",
+    "等待并核对 Apple 隐私地址目录",
   );
   assert.equal(runtimeLogAutoCreateStageLabel("failed"), "自动创建失败");
   assert.equal(runtimeLogSyncTriggerLabel("manual"), "手动同步");

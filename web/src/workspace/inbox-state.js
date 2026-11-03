@@ -1,10 +1,25 @@
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 
 export const messageKey = (mail) => mail ? `${mail.aliasId}:${mail.mailboxUid}` : "";
 
+// A search-only change waits for a typing pause; any other filter change reloads at once.
+export function watchInboxFilters(filters, { onChange, reload, delay = 250 }) {
+  let timer;
+  const stop = watch(
+    () => [filters.query, filters.folder, filters.accountId, filters.aliasId, filters.groupId, filters.unread, filters.starred, filters.hasOtp],
+    ([, ...others], [, ...previous]) => {
+      clearTimeout(timer);
+      onChange();
+      if (others.every((value, index) => value === previous[index])) timer = setTimeout(reload, delay);
+      else reload();
+    },
+  );
+  return () => { clearTimeout(timer); stop(); };
+}
+
 // List membership and the open reader have separate lifetimes. In particular,
 // marking a message read must not dismiss it from an unread-only reading flow.
-export function useInboxMessages({ filters, page, pageSize = 40, getMessages, getMessage, patchMessage, getCsrfToken, onError }) {
+export function useInboxMessages({ filters, page, pageSize = 40, getMessages, getMessage, patchMessage, batchMessages, getCsrfToken, onError }) {
   const messages = ref([]), selected = ref(null), detail = ref(null);
   const readerOpen = ref(false), viewMode = ref("text");
   const loading = ref(false), detailLoading = ref(false);
@@ -116,11 +131,39 @@ export function useInboxMessages({ filters, page, pageSize = 40, getMessages, ge
     }
   }
 
+  // One request for many messages; the batch commits as a whole or not at all.
+  async function batch(action, mails) {
+    const keys = mails.map(messageKey);
+    if (!mails.length || disposed || keys.some((key) => busy.has(key))) return false;
+    keys.forEach((key) => busy.add(key));
+    try {
+      await batchMessages(action, mails, getCsrfToken());
+      if (disposed) return false;
+      cancelList();
+      // Like mutate(): the open reader may have left the list, so update it directly.
+      if (action === "read" || action === "unread") {
+        const read = action === "read";
+        mails.forEach((mail) => { mail.read = read; });
+        if (keys.includes(messageKey(selected.value))) selected.value.read = read;
+      }
+      const movesFolder = ["archive", "unarchive", "trash", "restore"].includes(action);
+      const selectedMoved = movesFolder && keys.includes(messageKey(selected.value));
+      if (selectedMoved) resetReader();
+      await loadList({ silent: true, keep: !selectedMoved });
+      return true;
+    } catch (cause) {
+      if (!disposed) onError(cause.message || "批量操作失败，请重试。原状态已保留。");
+      return false;
+    } finally {
+      keys.forEach((key) => busy.delete(key));
+    }
+  }
+
   function dispose() {
     disposed = true;
     cancelList();
     resetReader();
   }
 
-  return { messages, selected, detail, readerOpen, viewMode, loading, detailLoading, error, detailError, total, unreadCount, busy, pages, selectedIndex, previousMessage, nextMessage, loadList, selectMessage, mutate, cancelList, resetReader, dispose };
+  return { messages, selected, detail, readerOpen, viewMode, loading, detailLoading, error, detailError, total, unreadCount, busy, pages, selectedIndex, previousMessage, nextMessage, loadList, selectMessage, mutate, batch, cancelList, resetReader, dispose };
 }

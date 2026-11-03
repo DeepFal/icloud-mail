@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: 隐私邮箱外部取件 API v2
+  title: 隐私地址外部取件 API v2
   version: 2.0.0
   description: |
     本文档主要描述外部接口，并记录升级所需的少量管理兼容接口。服务提供两种
@@ -22,11 +22,11 @@ info:
     如果 iCloud 隐私邮箱转发到第三方邮箱，仍应保持 `mailbox_type=icloud`，并将上游
     `imap_username` 填为第三方 IMAP 登录/最终物理投递目标地址（若该邮箱服务允许使用邮箱地址登录）。同步会优先使用
     `X-ICLOUD-HME` 的 `p=`/`f=` 路由信息，再结合 `Delivered-To`、`X-Original-To`、
-    `Original-Recipient` 和常见 Apple 原始收件人头恢复隐私邮箱归属；Apple 的 `f=` 可以是中间
+    `Original-Recipient` 和常见 Apple 原始收件人头恢复隐私地址归属；Apple 的 `f=` 可以是中间
     转发地址，不必与最终 `Delivered-To` 相同。若只在 `To/Cc` 留下隐私地址，必须显式启用弱收件人头才会匹配。
     这些规则只控制邮件取件与归属；Apple 目录同步和自动创建仍使用现有的主号默认转发目标校验。
 
-    IMAPS 用户名是隐私邮箱地址。客户端可以使用本服务签发的 IMAP 密码登录，
+    IMAPS 用户名是隐私地址。客户端可以使用本服务签发的 IMAP 密码登录，
     或通过 `POST /oauth2/v2.0/token` 获取一小时访问令牌后使用 XOAUTH2。
     邮箱只有只读 INBOX，支持 LIST、STATUS、SELECT/EXAMINE、SEARCH、
     FETCH/UID FETCH 和 IDLE；所有写操作返回只读错误。
@@ -253,14 +253,14 @@ paths:
       tags:
         - Legacy Compatibility
       operationId: createLegacyAlias
-      summary: 兼容登记已存在的隐私邮箱
+      summary: 兼容登记已存在的隐私地址
       description: |
         保留 v1 的字段拼写 `add_hide_my_eamil`、`icloud`。两个字段可放在 query、
         `application/x-www-form-urlencoded` 正文，或分别放在两处；query 与正文合并后
         每个字段必须恰好出现一次，且不能包含其他字段。正文为空时不要求
         `Content-Type`。使用部署级 `ICLOUD_API_OAUTH_TOKEN` 的严格单一 Bearer 鉴权；
         成功响应直接返回 `api_key` 和 `mail_api_direct_link`；v2 凭证随后仍可由
-        已认证管理端读取。该接口只登记 Apple 端已经存在的隐私邮箱，不负责创建
+        已认证管理端读取。该接口只登记 Apple 端已经存在的隐私地址，不负责创建
         地址。query 与正文合计不得超过 4 KiB。
       x-runtime-constraint:
         query-form-merge: >-
@@ -384,7 +384,7 @@ paths:
 
   /api/v1/otp:
     get:
-      summary: 读取当前隐私邮箱的验证码历史
+      summary: 读取当前隐私地址的验证码历史
       description: |
         默认返回最新优先、持续累积的裸数组，每个邮箱最多 100 条。设置
         `ICLOUD_API_OTP_RETURN_LATEST_ONLY=true` 后，有记录时只返回该数组第一项的
@@ -647,8 +647,8 @@ paths:
       operationId: getAdminAccount
       summary: 获取主号详情
       description: |
-        返回主号、所属隐私邮箱、Apple 会话状态和自动创建计划。`aliases` 只包含当前数据库
-        分页；`pagination.total` 是该主号的隐私邮箱总数，`has_more` 表示当前页之后是否还有结果。
+        返回主号、所属隐私地址、Apple 会话状态和自动创建计划。`aliases` 只包含当前数据库
+        分页；`pagination.total` 是该主号的隐私地址总数，`has_more` 表示当前页之后是否还有结果。
       security:
         - adminSession: []
       parameters:
@@ -656,7 +656,7 @@ paths:
         - name: limit
           in: query
           required: false
-          description: 本页最多返回的该主号隐私邮箱数。
+          description: 本页最多返回的该主号隐私地址数。
           schema:
             type: integer
             minimum: 1
@@ -665,7 +665,7 @@ paths:
         - name: offset
           in: query
           required: false
-          description: 在该主号的隐私邮箱列表中跳过的邮箱数。
+          description: 在该主号的隐私地址列表中跳过的邮箱数。
           schema:
             type: integer
             minimum: 0
@@ -673,7 +673,7 @@ paths:
             default: 0
       responses:
         "200":
-          description: 主号详情及所属隐私邮箱的当前数据库分页
+          description: 主号详情及所属隐私地址的当前数据库分页
           headers:
             X-Request-ID:
               $ref: "#/components/headers/RequestID"
@@ -714,10 +714,10 @@ paths:
         更新主号配置。省略 `imap_host` 或 `imap_port` 时分别保留当前值，显式传入 `null` 则
         返回 400。规范化后的 IMAP 主机、端口或用户名实际发生变化后，服务会清除该主号旧邮箱
         来源的同步游标、兼容快照、消费历史、待处理 `\Seen` 任务、v2 归档和 OTP 历史，轮换
-        公开 IMAPS 的 `UIDVALIDITY`，并在下次同步确认前把主号及所属隐私邮箱的同步状态重置为
+        公开 IMAPS 的 `UIDVALIDITY`，并在下次同步确认前把主号及所属隐私地址的同步状态重置为
         `pending`。修改 IMAP 密码（直连 iCloud 为 App 专用密码，第三方转发为第三方 IMAP 密码）也会重置同步状态，但保留已有邮件；`imap_password` 省略、
         传 `null` 或传空字符串时均保留当前密码。
-        已有隐私邮箱后，仅主号邮箱及邮箱模式/后缀不可修改；IMAP 主机、端口和用户名仍可修改。
+        已有隐私地址后，仅主号邮箱及邮箱模式/后缀不可修改；IMAP 主机、端口和用户名仍可修改。
       security:
         - adminSession: []
       parameters:
@@ -772,7 +772,7 @@ paths:
       operationId: deleteAdminAccount
       summary: 删除主号
       description: |
-        永久删除本地主号及其所属隐私邮箱、API Key、邮件快照、消费历史、待处理 `\Seen` 任务、
+        永久删除本地主号及其所属隐私地址、API Key、邮件快照、消费历史、待处理 `\Seen` 任务、
         v2 归档元数据和 MIME 文件、IMAP 同步游标、Apple Web 会话和自动创建计划。该操作只
         清理本地数据，不会删除 Apple Hide My Email 中的远端地址。
       security:
@@ -812,7 +812,7 @@ paths:
       tags: [Administration]
       operationId: listMailGroups
       summary: 查询邮箱分组
-      description: 返回全局邮箱分组及每个分组包含的隐私邮箱数量。
+      description: 返回全局邮箱分组及每个分组包含的隐私地址数量。
       security:
         - adminSession: []
       responses:
@@ -920,7 +920,7 @@ paths:
       tags: [Administration]
       operationId: deleteMailGroup
       summary: 删除邮箱分组
-      description: 删除分组后，组内隐私邮箱会保留并恢复为未分组。
+      description: 删除分组后，组内隐私地址会保留并恢复为未分组。
       security:
         - adminSession: []
       parameters:
@@ -957,7 +957,7 @@ paths:
     patch:
       tags: [Administration]
       operationId: moveAliasesToGroup
-      summary: 批量移动隐私邮箱到分组
+      summary: 批量移动隐私地址到分组
       description: "group_id 传 null 可将邮箱恢复为未分组。"
       security:
         - adminSession: []
@@ -1203,9 +1203,9 @@ paths:
     delete:
       tags: [Administration]
       operationId: deleteAliasesFromApple
-      summary: 从 Apple 批量永久删除隐私邮箱
+      summary: 从 Apple 批量永久删除隐私地址
       description: |
-        仅接受已经完成 Apple 登录、邮箱模式为 `icloud` 且主号没有同步错误的隐私邮箱。
+        仅接受已经完成 Apple 登录、邮箱模式为 `icloud` 且主号没有同步错误的隐私地址。
         服务会先检查本次请求中的全部邮箱和主号，在第一项远端变更前完成资格校验；随后对每个
         邮箱调用 Apple 的停用（必要时）和永久删除流程。只有 Apple 端确认该地址已经删除后，
         才删除本地记录；新一次读取的 Apple 目录确认地址已不存在时，也可清理本地记录，
@@ -1248,7 +1248,7 @@ paths:
         等待保持 running 并返回 waits，不计为已处理或失败；结束等待后用新目录核对再继续，
         不盲目重放停用或删除。持续受限时后续未执行项返回 APPLE_BATCH_DEFERRED，
         可选 deferred 是 failed 的子集。同步兼容接口及单条删除不启用此后台等待策略。
-        冷却期间仍可开启或关闭自动创建隐私邮箱；开关只更新本地计划，不绕过 Apple 冷却。
+        冷却期间仍可开启或关闭自动创建隐私地址；开关只更新本地计划，不绕过 Apple 冷却。
         同一主号的实际 Apple 操作仍串行，批量删除恢复前重新获取账号锁并检查身份及邮箱状态。
         同账号、无异常且 N 个地址均需先停用的模拟调用计数可从 4N 降为 2N+2；这不是
         固定加速比。实际时长和成功数仍取决于 Apple，单次 1000 项上限不是全部成功承诺。
@@ -1458,7 +1458,7 @@ paths:
     patch:
       tags: [Administration]
       operationId: moveAliasToGroup
-      summary: 移动单个隐私邮箱到分组
+      summary: 移动单个隐私地址到分组
       security:
         - adminSession: []
       parameters:
@@ -1481,7 +1481,7 @@ paths:
                     - type: "null"
       responses:
         "200":
-          description: 隐私邮箱分组已更新
+          description: 隐私地址分组已更新
           content:
             application/json:
               schema:
@@ -1501,12 +1501,99 @@ paths:
         "500":
           $ref: "#/components/responses/AdminInternalError"
 
+  /api/v1/messages/batch:
+    servers:
+      - url: https://HOST/{admin_path}
+        description: 首选的安装级随机管理 API 前缀；将 admin_path 替换为 keys 卷中值去掉首尾斜杠后的形式
+        variables:
+          admin_path:
+            default: 00000000000000000000000000000000/admin
+            description: 首次启动生成并持久化的管理路径，替换时去掉文件值的开头和结尾斜杠
+      - url: https://HOST/admin
+        description: 升级前客户端使用的固定兼容入口；认证、CSRF 和限流规则相同
+    post:
+      tags: [Administration]
+      operationId: batchUpdateWorkspaceMail
+      summary: 批量修改收件箱邮件的本地状态
+      description: |
+        对多封邮件执行与单封 `PATCH /mailboxes/{aliasID}/messages/{uid}` 相同的本地状态变更
+        （已读、归档、垃圾箱）。只改本面板中当前管理员的状态，不访问 Apple 或上游 IMAP，
+        也不影响取件 API 与只读 IMAPS。整批在一个事务中提交：任一邮件不存在则整批不生效。
+      security:
+        - adminSession: []
+      parameters:
+        - $ref: "#/components/parameters/AdminCSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [action, items]
+              properties:
+                action:
+                  type: string
+                  enum: [read, unread, archive, unarchive, trash, restore]
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [alias_id, mailbox_uid]
+                    properties:
+                      alias_id:
+                        type: integer
+                        format: int64
+                        minimum: 1
+                      mailbox_uid:
+                        type: integer
+                        minimum: 1
+      responses:
+        "200":
+          description: 整批已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [action, updated]
+                    properties:
+                      action:
+                        type: string
+                      updated:
+                        type: integer
+                        minimum: 1
+        "400":
+          $ref: "#/components/responses/AdminBadRequest"
+        "401":
+          $ref: "#/components/responses/AdminAuthUnauthorized"
+        "403":
+          $ref: "#/components/responses/AdminCSRFForbidden"
+        "404":
+          description: 批量中有邮件不存在；本次未做任何修改
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIErrorEnvelope"
+        "413":
+          $ref: "#/components/responses/AdminRequestTooLarge"
+        "415":
+          $ref: "#/components/responses/AdminUnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/AdminInternalError"
+
   /oauth2/v2.0/token:
     post:
       summary: 用 refresh token 换取 IMAPS XOAUTH2 访问令牌
       description: |
         此接口是只读 IMAPS 的配套认证接口，不构成第三种取件方式。
-        client ID 与 refresh token 都属于同一个隐私邮箱并由本服务签发。
+        client ID 与 refresh token 都属于同一个隐私地址并由本服务签发。
       requestBody:
         required: true
         content:
@@ -1585,7 +1672,7 @@ paths:
           description: 随机邮箱及完整凭证创建成功
           headers:
             Location:
-              description: 该主号隐私邮箱列表的管理 API 相对路径。
+              description: 该主号隐私地址列表的管理 API 相对路径。
               schema:
                 type: string
                 format: uri-reference
@@ -2130,7 +2217,7 @@ components:
         email:
           type: string
           format: email
-          description: iCloud 模式下的主号邮箱；已有隐私邮箱时必须与当前值一致。
+          description: iCloud 模式下的主号邮箱；已有隐私地址时必须与当前值一致。
         mailbox_type:
           type: string
           enum: [icloud, custom]
@@ -2147,7 +2234,7 @@ components:
           type: string
           maxLength: 242
           pattern: '^@?[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$'
-          description: 自定义模式的邮箱后缀；规范化后最多 241 字节，不得与其他自定义主号重复，已有隐私邮箱时不可修改。
+          description: 自定义模式的邮箱后缀；规范化后最多 241 字节，不得与其他自定义主号重复，已有隐私地址时不可修改。
         custom_email:
           type: string
           description: "`email_suffix` 的兼容别名。"
@@ -2171,7 +2258,7 @@ components:
           type: string
           minLength: 1
           description: |
-            IMAP 登录用户名；服务会去除首尾空白，已有隐私邮箱时仍可修改。使用 iCloud 隐私邮箱
+            IMAP 登录用户名；服务会去除首尾空白，已有隐私地址时仍可修改。使用 iCloud 隐私邮箱
             转发到第三方邮箱时，应把它填写为第三方 IMAP 登录/最终物理投递目标地址，以便同步校验投递标头。规范化后的值
             实际变化会清理旧邮箱来源的同步游标、兼容快照、消费历史、待处理 `\Seen` 任务、v2 归档
             和 OTP 历史，轮换公开 IMAPS 的 UIDVALIDITY，并重置同步状态。
@@ -2185,7 +2272,7 @@ components:
           description: 新 IMAP 密码；直连 iCloud 使用 App 专用密码并去除首尾空白，iCloud 转发第三方 IMAP 和 custom 模式按原值保存；省略、传 `null` 或传空字符串时保留当前密码。
         enabled:
           type: boolean
-          description: 是否启用该主号的邮件同步和所属隐私邮箱 Key。
+          description: 是否启用该主号的邮件同步和所属隐私地址 Key。
 
     AdminAccountPage:
       type: object
@@ -2340,13 +2427,45 @@ components:
           description: 自定义邮箱生成使用的后缀；iCloud 模式为空字符串。
         sync_progress:
           $ref: "#/components/schemas/AdminSyncProgress"
+        apple:
+          $ref: "#/components/schemas/AdminAccountAppleHealth"
+
+    AdminAccountAppleHealth:
+      type: object
+      additionalProperties: false
+      description: |
+        仅主号列表返回，只读取本地已保存的状态，不访问 Apple。已停用主号、自定义邮箱主号或
+        Apple 服务未装配时省略。
+      required: [web, account, keep_alive, creation_cooldown_until, needs_attention]
+      properties:
+        web:
+          type: string
+          enum: [healthy, expired, not_connected, unknown]
+          description: iCloud 网页通道；`expired` 表示曾经连接但会话已失效。
+        account:
+          type: string
+          enum: [healthy, retry_wait, expired, not_connected, unknown]
+          description: Apple Account 通道；`retry_wait` 表示保活刷新失败、正在退避重试。
+        keep_alive:
+          type: string
+          enum: [disabled, idle, logging_in, waiting_code, authenticated, retry_wait, needs_action, unknown]
+          description: 自动保活状态，取两条通道中最需要关注的一个；`needs_action` 表示需要人工处理。
+        creation_cooldown_until:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 两条创建通道中最晚的本地冷却截止时间；没有进行中的冷却时为 null。
+        needs_attention:
+          type: boolean
+          description: 任一通道会话已失效，或自动保活为 `needs_action`。从未连接 Apple 不算需处理。
 
     AdminAccountDetail:
       type: object
       additionalProperties: false
       description: |
-        `aliases` 与 `pagination` 组成该主号隐私邮箱的一个数据库分页。GET 主号详情使用请求的
-        `limit` 和 `offset`；手动邮件同步及 Apple 隐私邮箱同步响应中嵌入的详情默认只返回
+        `aliases` 与 `pagination` 组成该主号隐私地址的一个数据库分页。GET 主号详情使用请求的
+        `limit` 和 `offset`；手动邮件同步及 Apple 隐私地址同步响应中嵌入的详情默认只返回
         前 20 条（limit=20、offset=0）。Apple 同步本次新建的邮箱仍由响应的 `created` 字段单独返回；
         若同步成功后详情刷新失败，响应还会返回 `detail_stale: true`，表示详情分页是同步前快照。
       required:
@@ -2360,7 +2479,7 @@ components:
           $ref: "#/components/schemas/AdminAccount"
         aliases:
           type: array
-          description: 该主号在当前数据库分页中的隐私邮箱；不是全量列表。
+          description: 该主号在当前数据库分页中的隐私地址；不是全量列表。
           maxItems: 1000
           items:
             $ref: "#/components/schemas/AdminAlias"
@@ -2426,14 +2545,14 @@ components:
           type: integer
           minimum: 0
           maximum: 1000000
-          description: 当前详情中跳过的该主号隐私邮箱数。
+          description: 当前详情中跳过的该主号隐私地址数。
         total:
           type: integer
           minimum: 0
-          description: 该主号在数据库中的隐私邮箱总数，不受当前 limit 和 offset 影响。
+          description: 该主号在数据库中的隐私地址总数，不受当前 limit 和 offset 影响。
         has_more:
           type: boolean
-          description: 当前页之后是否仍有该主号的隐私邮箱可返回。
+          description: 当前页之后是否仍有该主号的隐私地址可返回。
 
     AdminSyncProgress:
       type: object
@@ -2937,7 +3056,7 @@ components:
             type: integer
             format: int64
             minimum: 1
-          description: 需要从 Apple 永久删除的本地隐私邮箱 ID。
+          description: 需要从 Apple 永久删除的本地隐私地址 ID。
     PoolAliasRetirementRequest:
       type: object
       additionalProperties: false
@@ -3495,7 +3614,7 @@ components:
               request_id: 6oe7j0x3x3pJv9Dv
 
     AdminAccountConflict:
-      description: 主号邮箱已存在，或已有隐私邮箱后尝试修改主号邮箱
+      description: 主号邮箱已存在，或已有隐私地址后尝试修改主号邮箱
       headers:
         X-Request-ID:
           $ref: "#/components/headers/RequestID"
@@ -3516,7 +3635,7 @@ components:
               value:
                 error:
                   code: ACCOUNT_IDENTITY_LOCKED
-                  message: 已有隐私邮箱时不能修改主号邮箱
+                  message: 已有隐私地址时不能修改主号邮箱
                   request_id: 6oe7j0x3x3pJv9Dv
 
     AdminRandomAliasConflict:
@@ -3699,7 +3818,7 @@ components:
           schema:
             $ref: "#/components/schemas/APIErrorEnvelope"
     AdminAliasOrMailGroupNotFound:
-      description: 隐私邮箱或目标邮箱分组不存在（`NOT_FOUND` 或 `GROUP_NOT_FOUND`）。
+      description: 隐私地址或目标邮箱分组不存在（`NOT_FOUND` 或 `GROUP_NOT_FOUND`）。
       content:
         application/json:
           schema:

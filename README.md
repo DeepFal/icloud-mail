@@ -17,7 +17,7 @@
 - 收件箱与按需收件：集中查看邮件，访问取件链接或 API 时增量读取，并在同一主号内复用收件连接。
 - 实际邮箱与本地备注：按完整邮箱地址保存备注；备注独立于 Apple 目录标签，删除后重新导入同一地址仍可恢复。
 - 服务登记与状态：为邮箱记录服务和账号标识，区分未记录、已注册、待确认、确认未注册和已停用；登记只记录本地信息，不代表代为注册第三方服务。
-- 多账号管理：在一个面板中维护多个 Apple 主号、隐私邮箱、同步和连接状态。
+- 多账号管理：在一个面板中维护多个 Apple 主号、隐私地址、同步和连接状态。
 - 邮箱池与 API：为项目签发 Pool Key，支持领取、确认使用、续租、释放和退役，并用邮箱 API 获取验证码。
 - 批量任务：批量同步、创建、删除、登记和确认；自动创建计划可按主号配置并受实际上游限制影响。
 - 深浅主题：提供深色和浅色界面，前端资源随服务本地提供。
@@ -36,7 +36,7 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build --wait
 docker compose -f compose.yaml -f compose.build.yaml ps
 ```
 
-如目标版本已在 GHCR 发布，也可使用 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres` 两个镜像：在 `.env` 设置 `ICLOUD_MAIL_VERSION=v0.2.9`，运行 `docker compose pull` 和 `docker compose up -d --wait`。两个镜像使用同一版本；首次发布完成前请使用上面的源码构建。镜像的 OCI 标签记录完整 commit、版本和源码仓库，核对方法见 [DELIVERY.md](DELIVERY.md#ghcr-镜像)。
+如目标版本已在 GHCR 发布，也可使用 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres` 两个镜像：在 `.env` 设置 `ICLOUD_MAIL_VERSION=v0.2.10`，运行 `docker compose pull` 和 `docker compose up -d --wait`。两个镜像使用同一版本；首次发布完成前请使用上面的源码构建。镜像的 OCI 标签记录完整 commit、版本和源码仓库，核对方法见 [DELIVERY.md](DELIVERY.md#ghcr-镜像)。
 
 使用示例配置时，管理入口为 `http://127.0.0.1:8788/admin/`，用户名为 `admin`。首次启动生成的管理路径和密码保存在容器的 keys 卷中：
 
@@ -45,13 +45,32 @@ docker compose -f compose.yaml -f compose.build.yaml exec -T icloud-api cat /app
 docker compose -f compose.yaml -f compose.build.yaml exec -T icloud-api cat /app/keys/admin-password
 ```
 
-在面板中依次执行“添加主号 → 配置收件 → 连接 Apple → 同步地址”，再复制取件链接或把邮箱加入邮箱池。直连 iCloud IMAP 使用 Apple App 专用密码；它与管理隐私邮箱所用的账户密码分开配置。
+在面板中依次执行“添加主号 → 配置收件 → 连接 Apple → 同步地址”，再复制取件链接或把邮箱加入邮箱池。直连 iCloud IMAP 使用 Apple App 专用密码；它与管理隐私地址所用的账户密码分开配置。
 
 远程服务器可通过 SSH 隧道访问管理入口：
 
 ```sh
 ssh -N -L 127.0.0.1:8788:127.0.0.1:8788 USER@SERVER
 ```
+
+### 忘记管理员密码
+
+在项目目录运行 `admin reset` 子命令重置管理员凭据，所有旧登录会话会同时注销；完成后会输出当前用户名，即 `.env` 中的 `ICLOUD_API_ADMIN_USER`，未设置时为 `admin`：
+
+```sh
+docker compose -f compose.yaml -f compose.build.yaml run --rm --no-deps icloud-api admin reset
+```
+
+重置后的密码来源：
+
+- `.env` 已设置 `ICLOUD_API_ADMIN_PASSWORD`：密码就是该配置值，直接用它登录；此时 keys 卷中不保留 `admin-password` 文件。
+- 未设置：keys 卷中已有 `admin-password` 时沿用其中的密码，只有没有该文件时才生成新的随机密码并写入。可在服务运行时读取（必要时先 `docker compose up -d --wait`）：
+
+```sh
+docker compose -f compose.yaml -f compose.build.yaml exec -T icloud-api cat /app/keys/admin-password
+```
+
+镜像安装去掉命令中的 `-f compose.build.yaml`。
 
 升级前请备份数据库、密钥和邮件归档，保留 `.env` 与已有数据卷；安装、备份、迁移和公网 HTTPS 说明见 [DELIVERY.md](DELIVERY.md) 与 [公网部署指南](docs/PUBLIC.md)。
 

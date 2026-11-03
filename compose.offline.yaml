@@ -1,8 +1,8 @@
 # Load the release image archive before starting with this overlay.
 services:
   icloud-api:
-    image: ghcr.io/deepfal/icloud-mail:${ICLOUD_MAIL_VERSION:-v0.2.9}
+    image: ghcr.io/deepfal/icloud-mail:${ICLOUD_MAIL_VERSION:-v0.2.10}
     pull_policy: never
   postgres:
-    image: ghcr.io/deepfal/icloud-mail-postgres:${ICLOUD_MAIL_VERSION:-v0.2.9}
+    image: ghcr.io/deepfal/icloud-mail-postgres:${ICLOUD_MAIL_VERSION:-v0.2.10}
     pull_policy: never

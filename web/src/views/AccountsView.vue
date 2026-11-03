@@ -8,6 +8,10 @@
       title="邮箱主号"
     >
       <template #actions>
+        <el-radio-group :model-value="attentionOnly ? 'attention' : 'all'" size="default" aria-label="主号筛选" @change="setAttentionFilter">
+          <el-radio-button value="all">全部</el-radio-button>
+          <el-radio-button value="attention">需处理</el-radio-button>
+        </el-radio-group>
         <el-tooltip content="刷新主号列表" placement="bottom">
           <el-button
             :icon="Refresh"
@@ -31,6 +35,12 @@
       <RequestAlert :error="loadError" />
       <el-button :icon="Refresh" @click="loadAccounts">重新加载</el-button>
     </div>
+
+    <EmptyState
+      v-else-if="accounts.length === 0 && attentionOnly"
+      title="没有需要处理的主号"
+      description="所有启用的主号收件和 Apple 连接都正常。"
+    />
 
     <EmptyState
       v-else-if="accounts.length === 0"
@@ -75,6 +85,12 @@
             <template v-else-if="column.key === 'status'">
               <SyncStatus :item="row" />
             </template>
+            <template v-else-if="column.key === 'apple'">
+              <AppleConnectionTags :account="row" />
+            </template>
+            <template v-else-if="column.key === 'attention'">
+              <AttentionReasons :account="row" />
+            </template>
             <template v-else-if="column.key === 'aliasCount'">
               {{ row.aliasCount }}
             </template>
@@ -105,8 +121,16 @@
             <SyncStatus :item="account" />
           </header>
           <dl class="mobile-kv-list">
+            <div v-if="account.apple">
+              <dt>Apple 连接</dt>
+              <dd><AppleConnectionTags :account="account" /></dd>
+            </div>
+            <div v-if="attentionReasons(account).length">
+              <dt>需处理</dt>
+              <dd><AttentionReasons :account="account" /></dd>
+            </div>
             <div>
-              <dt>隐私邮箱</dt>
+              <dt>隐私地址</dt>
               <dd>{{ account.aliasCount }}</dd>
             </div>
             <div>
@@ -123,6 +147,7 @@
       </div>
 
       <ListPagination
+        v-if="!attentionOnly"
         :page="currentPage"
         :page-size="pageSize"
         :total="total"
@@ -137,8 +162,8 @@
 
 <script setup>
 import { Plus, Refresh, Setting } from "@element-plus/icons-vue";
-import { onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import { getAccountPage, getAllAccounts } from "../api/admin.js";
 import EmptyState from "../components/EmptyState.vue";
@@ -147,7 +172,10 @@ import RequestAlert from "../components/RequestAlert.vue";
 import SectionHeader from "../components/SectionHeader.vue";
 import SyncStatus from "../components/SyncStatus.vue";
 import VirtualDataTable from "../components/VirtualDataTable.vue";
+import AppleConnectionTags from "../components/AppleConnectionTags.vue";
+import AttentionReasons from "../components/AttentionReasons.vue";
 import { formatTime } from "../utils/format.js";
+import { accountAttentionReasons, accountNeedsAttention } from "../utils/workspaceConnection.js";
 import { createLatestRequestGate } from "../utils/asyncState.js";
 import { createLiveRefresh } from "../utils/liveRefresh.js";
 import {
@@ -157,11 +185,16 @@ import {
 } from "../utils/pagination.js";
 
 const router = useRouter();
+const route = useRoute();
+const attentionOnly = computed(() => route.query.attention === "1");
+const attentionReasons = accountAttentionReasons;
 const pageSize = ref(DEFAULT_PAGE_SIZE);
 const accountColumns = [
   { key: "account", title: "主号", width: 250, flexGrow: 3 },
   { key: "status", title: "状态", width: 140, flexGrow: 1 },
-  { key: "aliasCount", title: "隐私邮箱", width: 112, align: "center" },
+  { key: "apple", title: "Apple 连接", width: 220, flexGrow: 2 },
+  { key: "attention", title: "需处理", width: 150, flexGrow: 1 },
+  { key: "aliasCount", title: "隐私地址", width: 112, align: "center" },
   { key: "lastSyncedAt", title: "最近同步", width: 180, flexGrow: 1 },
   { key: "actions", title: "操作", width: 118, align: "right", fixed: "right" },
 ];
@@ -187,7 +220,8 @@ async function loadAccounts({ silent = false } = {}) {
     loadError.value = null;
   }
   try {
-    const result = selectedPageSize === ALL_PAGE_SIZE
+    // The attention filter is evaluated locally, so it needs every account.
+    const result = selectedPageSize === ALL_PAGE_SIZE || attentionOnly.value
       ? {
           items: await getAllAccounts({ signal: abortController.signal }),
         }
@@ -201,8 +235,9 @@ async function loadAccounts({ silent = false } = {}) {
       !loadGate.isCurrent(ticket, `${currentPage.value}\u0000${pageSize.value}`)
     ) return;
     const nextTotal = Math.max(0, Number(result?.total) || 0);
-    const nextItems = Array.isArray(result?.items) ? result.items : [];
-    const allItems = selectedPageSize === ALL_PAGE_SIZE;
+    const loaded = Array.isArray(result?.items) ? result.items : [];
+    const nextItems = attentionOnly.value ? loaded.filter(accountNeedsAttention) : loaded;
+    const allItems = selectedPageSize === ALL_PAGE_SIZE || attentionOnly.value;
     const resolvedTotal = allItems ? nextItems.length : nextTotal;
     const lastPage = allItems
       ? 1
@@ -237,6 +272,19 @@ async function loadAccounts({ silent = false } = {}) {
     if (listAbortController === abortController) listAbortController = null;
   }
 }
+
+function setAttentionFilter(value) {
+  router.replace({ query: value === "attention" ? { attention: "1" } : {} });
+}
+
+watch(attentionOnly, () => {
+  currentPage.value = 1;
+  accounts.value = [];
+  total.value = 0;
+  loadError.value = null;
+  loadGate.invalidate();
+  void loadAccounts();
+});
 
 function handlePageChange(page) {
   if (pageSize.value === ALL_PAGE_SIZE) return;

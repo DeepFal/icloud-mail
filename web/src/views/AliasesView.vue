@@ -7,7 +7,7 @@
   >
     <SectionHeader
       id="aliases-section-title"
-      title="全部隐私邮箱"
+      title="全部隐私地址"
     >
       <template #actions>
         <el-button :icon="FolderAdd" @click="openGroupDialog()">
@@ -22,7 +22,7 @@
           :icon="RefreshLeft"
           :loading="rotatingAllCredentials"
           :disabled="rotatingAllCredentials || exportingAll"
-          aria-label="轮换所有隐私邮箱令牌与凭证"
+          aria-label="轮换所有隐私地址令牌与凭证"
           @click="rotateAllCredentials"
         >
           轮换全部令牌
@@ -48,13 +48,13 @@
         </el-button>
           </div>
         </el-popover>
-        <el-tooltip content="刷新隐私邮箱列表" placement="bottom">
+        <el-tooltip content="刷新隐私地址列表" placement="bottom">
           <el-button
             :icon="Refresh"
             circle
             :loading="loading"
             :disabled="rotatingAllCredentials"
-            aria-label="刷新隐私邮箱列表"
+            aria-label="刷新隐私地址列表"
             @click="loadAliases"
           />
         </el-tooltip>
@@ -113,10 +113,10 @@
           </div>
         </div>
       </div>
-      <EmptyState v-else level="h3" title="还没有分组" description="创建分组后即可把隐私邮箱移动进去。" />
+      <EmptyState v-else level="h3" title="还没有分组" description="创建分组后即可把隐私地址移动进去。" />
     </el-dialog>
 
-    <div class="alias-list-filters" role="search" aria-label="筛选全部隐私邮箱">
+    <div class="alias-list-filters" role="search" aria-label="筛选全部隐私地址">
       <label class="alias-list-filter alias-list-filter--query">
         <span>关键词</span>
         <el-input
@@ -124,7 +124,7 @@
           clearable
           maxlength="200"
           :prefix-icon="Search"
-          aria-label="关键词：模糊搜索隐私邮箱"
+          aria-label="关键词：模糊搜索隐私地址"
           placeholder="邮箱地址或用途备注"
           @keyup.enter="applyAliasSearch"
           @clear="applyAliasSearch"
@@ -221,11 +221,11 @@
         <span class="alias-selection-toolbar__spacer" />
         <el-button :icon="CopyDocument" :disabled="selectionBusy || !selectedAliases.length" @click="copySelectedAliases(ALIAS_EXPORT_OTP)">勾选取码</el-button>
         <el-button :disabled="selectionBusy || !selectedAliases.length" @click="copySelectedAliases(ALIAS_EXPORT_IMAP)">勾选 IMAP</el-button>
-        <el-select v-model="moveTargetGroupId" class="alias-group-bulk-select" :loading="groupsLoading || movingAliases" :disabled="selectionBusy" placeholder="移动到分组" aria-label="将勾选的隐私邮箱移动到分组" @change="moveSelectedAliases">
+        <el-select v-model="moveTargetGroupId" class="alias-group-bulk-select" :loading="groupsLoading || movingAliases" :disabled="selectionBusy" placeholder="移动到分组" aria-label="将勾选的隐私地址移动到分组" @change="moveSelectedAliases">
           <el-option label="未分组" value="none" />
           <el-option v-for="group in groups" :key="group.id" :label="group.name" :value="String(group.id)" />
         </el-select>
-        <el-button type="danger" plain :icon="Delete" :loading="deletingAliases" :disabled="selectionBusy" aria-label="从 Apple 永久删除勾选的隐私邮箱" @click="deleteSelectedAliases">从 Apple 删除（{{ selectedAliasIds.length }}）</el-button>
+        <el-button type="danger" plain :icon="Delete" :loading="deletingAliases" :disabled="selectionBusy" aria-label="从 Apple 永久删除勾选的隐私地址" @click="deleteSelectedAliases">从 Apple 删除（{{ selectedAliasIds.length }}）</el-button>
       </template>
     </div>
 
@@ -328,7 +328,7 @@
       />
 
     <div v-if="loading && aliases.length === 0" class="data-panel loading-panel">
-      <el-skeleton :rows="6" animated role="status" aria-label="正在加载隐私邮箱列表" />
+      <el-skeleton :rows="6" animated role="status" aria-label="正在加载隐私地址列表" />
     </div>
 
     <div v-else-if="loadError && aliases.length === 0" class="load-failed">
@@ -340,10 +340,10 @@
       v-else-if="aliases.length === 0"
       :title="
         appliedAliasQuery || appliedGroupId || selectedLatestMailFilter
-          ? '没有匹配的隐私邮箱'
+          ? '没有匹配的隐私地址'
           : selectedAccountId
-            ? '该主号暂无隐私邮箱'
-            : '还没有隐私邮箱'
+            ? '该主号暂无隐私地址'
+            : '还没有隐私地址'
       "
       :description="
         appliedAliasQuery || appliedGroupId || selectedLatestMailFilter
@@ -395,7 +395,7 @@
               :model-value="allAliasesSelected"
               :indeterminate="someExportableAliasesSelected"
               :disabled="selectionBusy || aliases.length === 0"
-              aria-label="勾选本页隐私邮箱"
+              aria-label="勾选本页隐私地址"
               @change="setAllAliasesSelected"
             />
             <template v-else>{{ column.title }}</template>
@@ -436,7 +436,7 @@
                 :model-value="row.groupId == null ? '' : String(row.groupId)"
                 :loading="Boolean(movingAliasIds[row.id])"
                 :disabled="Boolean(movingAliasIds[row.id])"
-                aria-label="选择隐私邮箱分组"
+                aria-label="选择隐私地址分组"
                 placeholder="未分组"
                 @change="moveAlias(row, $event)"
               >
@@ -533,7 +533,7 @@
 
           </dl>
           <footer class="mobile-record__actions alias-mobile-actions">
-            <el-select class="mobile-alias-group-select" :model-value="alias.groupId == null ? '' : String(alias.groupId)" :loading="Boolean(movingAliasIds[alias.id])" :disabled="Boolean(movingAliasIds[alias.id])" aria-label="选择隐私邮箱分组" placeholder="未分组" @change="moveAlias(alias, $event)">
+            <el-select class="mobile-alias-group-select" :model-value="alias.groupId == null ? '' : String(alias.groupId)" :loading="Boolean(movingAliasIds[alias.id])" :disabled="Boolean(movingAliasIds[alias.id])" aria-label="选择隐私地址分组" placeholder="未分组" @change="moveAlias(alias, $event)">
               <el-option label="未分组" value="" />
               <el-option v-for="group in groups" :key="group.id" :label="group.name" :value="String(group.id)" />
             </el-select>
@@ -559,7 +559,7 @@
         :page-size="pageSize"
         :total="total"
         :loading="loading"
-        aria-label="隐私邮箱列表分页"
+        aria-label="隐私地址列表分页"
         @change="handlePageChange"
         @size-change="handlePageSizeChange"
       />
@@ -1232,13 +1232,13 @@ async function deleteSelectedAliases() {
   if (selected.length !== selectedIds.length) {
     clearAliasSelection();
     showRequestError(
-      { message: "列表已发生变化，请刷新后重新选择隐私邮箱。" },
+      { message: "列表已发生变化，请刷新后重新选择隐私地址。" },
       "批量删除未执行。",
     );
     return;
   }
   if (selected.some(isAliasConfirmationPending)) {
-    ElMessage.warning("等待 Apple 目录确认的隐私邮箱暂时不能批量删除。");
+    ElMessage.warning("等待 Apple 目录确认的隐私地址暂时不能批量删除。");
     return;
   }
 
@@ -1261,13 +1261,13 @@ async function deleteSelectedAliases() {
       return;
     }
     if (states.includes("login")) {
-      ElMessage.warning("请先让所选 iCloud 主号完成 Apple 登录，再批量删除隐私邮箱。");
+      ElMessage.warning("请先让所选 iCloud 主号完成 Apple 登录，再批量删除隐私地址。");
       return;
     }
 
     await ElMessageBox.confirm(
-      `将从 Apple 永久删除所选的 ${selected.length} 个隐私邮箱，并清除本项目中的对应记录。Apple 端删除不可恢复，继续吗？`,
-      "从 Apple 批量永久删除隐私邮箱",
+      `将从 Apple 永久删除所选的 ${selected.length} 个隐私地址，并清除本项目中的对应记录。Apple 端删除不可恢复，继续吗？`,
+      "从 Apple 批量永久删除隐私地址",
       {
         type: "warning",
         confirmButtonText: "继续删除",
@@ -1351,7 +1351,7 @@ function copyAllAliases(format) {
     })
     .catch((error) => {
       if (viewActive) {
-        showRequestError(error, "复制隐私邮箱凭证失败，请稍后重试。");
+        showRequestError(error, "复制隐私地址凭证失败，请稍后重试。");
       }
     })
     .finally(() => {
@@ -1640,7 +1640,7 @@ async function moveSelectedAliases(groupValue) {
     );
     clearAliasSelection();
     await Promise.all([loadAliases(), loadGroups()]);
-    successMessage("已将勾选的隐私邮箱移动到所选分组。");
+    successMessage("已将勾选的隐私地址移动到所选分组。");
   } catch (error) {
     showRequestError(error, "邮箱分组移动失败，请稍后重试。");
   } finally {
@@ -1666,9 +1666,9 @@ async function moveAlias(alias, groupValue) {
       loadAliases(),
       loadGroups(),
     ]);
-    successMessage("隐私邮箱分组已更新。");
+    successMessage("隐私地址分组已更新。");
   } catch (error) {
-    showRequestError(error, "隐私邮箱分组移动失败，请稍后重试。");
+    showRequestError(error, "隐私地址分组移动失败，请稍后重试。");
   } finally {
     delete movingAliasIds[alias.id];
   }

@@ -1,7 +1,7 @@
 services:
   icloud-api:
     container_name: icloud-api
-    image: ${ICLOUD_API_IMAGE:-ghcr.io/deepfal/icloud-mail:${ICLOUD_MAIL_VERSION:-v0.2.9}}
+    image: ${ICLOUD_API_IMAGE:-ghcr.io/deepfal/icloud-mail:${ICLOUD_MAIL_VERSION:-v0.2.10}}
     pull_policy: always
     restart: unless-stopped
     stop_grace_period: 2m
@@ -78,7 +78,7 @@ services:
       start_period: 10s
 
   postgres:
-    image: ${ICLOUD_API_POSTGRES_IMAGE:-ghcr.io/deepfal/icloud-mail-postgres:${ICLOUD_MAIL_VERSION:-v0.2.9}}
+    image: ${ICLOUD_API_POSTGRES_IMAGE:-ghcr.io/deepfal/icloud-mail-postgres:${ICLOUD_MAIL_VERSION:-v0.2.10}}
     pull_policy: always
     restart: unless-stopped
     stop_grace_period: 60s
