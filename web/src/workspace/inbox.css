@@ -46,7 +46,6 @@
   text-decoration: none;
 }
 .inbox-actions button:hover:not(:disabled), .state button:hover:not(:disabled), .pager button:hover:not(:disabled), .body-tools button:hover, .body-tools a:hover, .mail-otp button:hover { background: var(--surface-subtle); border-color: var(--border-strong); }
-.inbox-actions .mail-sync { border-color: var(--border-strong); }
 .inbox-actions .manage-addresses { border-color: transparent; color: var(--text-secondary); }
 .inbox-filters { gap: 16px; padding: 0 24px 8px; flex-shrink: 0; }
 .mail-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 160px; min-height: 38px; padding: 0 11px; border: 1px solid transparent; border-radius: 6px; background: var(--surface-subtle); color: var(--text-secondary); }

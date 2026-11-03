@@ -68,3 +68,18 @@ test("existing sync error summaries open the reusable full log dialog", async ()
     /account\.lastSyncErrorLog \|\| account\.lastSyncError/,
   );
 });
+
+test("inbox exposes a single refresh button that lists first and then checks upstream", async () => {
+  const source = await readFile(
+    new URL("../src/workspace/InboxView.vue", import.meta.url),
+    "utf8",
+  );
+  assert.equal((source.match(/<Refresh :class/g) || []).length, 1);
+  assert.doesNotMatch(source, /从主号收取|刷新列表|class="mail-sync"/);
+  assert.match(
+    source,
+    /async function refresh\(\) \{[\s\S]*await loadList\(\{ keep: true \}\);[\s\S]*await checkUpstream\(\);/,
+  );
+  assert.match(source, /上游检查中…/);
+  assert.match(source, /上游检查完成于/);
+});

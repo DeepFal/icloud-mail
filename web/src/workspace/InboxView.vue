@@ -38,7 +38,7 @@ const emptyState = computed(() => {
   if (!metaLoading.value && !metaError.value && !accounts.value.length) return { title: "接收你的第一封邮件", description: "添加主号并完成收件连接，来信就会出现在这里。", action: "添加主号", kind: "setup" };
   if (filters.folder === "archived") return { title: "还没有归档邮件", description: "归档后的邮件会保留在这里，随时可以移回收件箱。" };
   if (filters.folder === "trash") return { title: "垃圾箱是空的", description: "移到这里的邮件可以恢复到原来的位置。" };
-  return { title: "暂时没有新来信", description: "可以从主号收取新邮件，也可以在主号设置中补取历史邮件。", action: "补取历史邮件", kind: "history" };
+  return { title: "暂时没有新来信", description: "点击「刷新」检查新邮件，也可以在主号设置中补取历史邮件。", action: "补取历史邮件", kind: "history" };
 });
 const pinnedMessage = computed(() => {
   if (!selected.value || selectedIndex.value >= 0) return "";
@@ -88,11 +88,17 @@ async function undoMove() {
   try { if (await mutate(action.patch, action.mail)) { if (lastAction.value === action) lastAction.value = null; ElMessage.success("已撤销，邮件已恢复"); } }
   finally { undoing.value = false; }
 }
-async function sync() {
+const clock = (at) => new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(at);
+async function refresh() {
+  if (syncing.value || loading.value) return;
+  await loadList({ keep: true });
+  await checkUpstream();
+}
+async function checkUpstream() {
   if (syncing.value) return;
   const targets = accounts.value.filter((account) => account.enabled && (!filters.accountId || String(account.id) === filters.accountId));
   if (!targets.length) { syncNotice.value = { error: true, text: "请先添加并启用一个主号，再收取新邮件。", to: { name: "accounts" }, link: "设置主号" }; return; }
-  syncing.value = true; syncNotice.value = null;
+  syncing.value = true; syncNotice.value = { error: false, text: "上游检查中…", pending: true };
   let submitted = 0;
   const failed = [];
   try {
@@ -105,7 +111,7 @@ async function sync() {
     const first = failed[0];
     syncNotice.value = first
       ? { error: true, text: `${submitted ? `已向 ${submitted} 个主号提交收件；` : ""}${failed.length} 个主号未确认提交。${first.message} 请先查看状态再重试。`, to: { name: "account-detail", params: { id: first.account.id } }, link: "查看主号状态" }
-      : { error: false, text: `已向 ${submitted} 个主号提交收件请求。新来信会自动更新到列表。`, to: targets.length === 1 ? { name: "account-detail", params: { id: targets[0].id } } : { name: "accounts" }, link: "查看收件状态" };
+      : { error: false, text: `上游检查完成于 ${clock(new Date())}，已向 ${submitted} 个主号提交收件，新来信会自动更新到列表。`, to: targets.length === 1 ? { name: "account-detail", params: { id: targets[0].id } } : { name: "accounts" }, link: "查看收件状态" };
     window.dispatchEvent(new Event("icloud:receiving-updated"));
     await loadList({ silent: true });
   } finally { if (!disposed) syncing.value = false; }
@@ -137,11 +143,10 @@ onBeforeUnmount(() => { window.removeEventListener("icloud:mailbox-profile-updat
     <header class="inbox-toolbar">
       <h1>收件箱 <small>{{ total }} 封</small></h1>
       <div class="inbox-actions">
-        <button class="mail-sync" :disabled="syncing || metaLoading" @click="sync"><Refresh :class="{ spinning: syncing }" />{{ syncing ? '提交中…' : '从主号收取' }}</button>
         <button class="manage-addresses" @click="router.push({ name: 'aliases' })"><Collection /><span>管理隐私地址</span></button>
       </div>
     </header>
-    <div v-if="syncNotice" class="inbox-feedback" :class="{ warning: syncNotice.error }" :role="syncNotice.error ? 'alert' : 'status'"><span>{{ syncNotice.text }}</span><RouterLink :to="syncNotice.to">{{ syncNotice.link }}<ArrowRight /></RouterLink><button class="feedback-dismiss" aria-label="关闭收件提示" @click="syncNotice = null"><Close /></button></div>
+    <div v-if="syncNotice" class="inbox-feedback" :class="{ warning: syncNotice.error }" :role="syncNotice.error ? 'alert' : 'status'"><span>{{ syncNotice.text }}</span><RouterLink v-if="syncNotice.to" :to="syncNotice.to">{{ syncNotice.link }}<ArrowRight /></RouterLink><button v-if="!syncNotice.pending" class="feedback-dismiss" aria-label="关闭收件提示" @click="syncNotice = null"><Close /></button></div>
     <div v-if="lastAction" class="inbox-feedback" role="status"><span>{{ lastAction.label }}</span><button class="undo-action" :disabled="undoing" @click="undoMove">{{ undoing ? '撤销中…' : '撤销' }}</button><button class="feedback-dismiss" aria-label="关闭操作提示" @click="lastAction = null"><Close /></button></div>
     <div class="inbox-filters">
       <label class="mail-search"><Search /><input v-model="filters.query" aria-label="搜索标题、发件人或地址" placeholder="搜索标题、发件人或地址…" /></label>
@@ -156,7 +161,7 @@ onBeforeUnmount(() => { window.removeEventListener("icloud:mailbox-profile-updat
     <div class="inbox-list-tools">
       <nav class="folder-tabs" aria-label="邮件文件夹"><button v-for="folder in [{ id: 'inbox', name: '全部来信' }, { id: 'archived', name: '已归档' }, { id: 'trash', name: '垃圾箱' }]" :key="folder.id" :class="{ active: filters.folder === folder.id }" :aria-pressed="filters.folder === folder.id" @click="filters.folder = folder.id">{{ folder.name }}</button></nav>
       <div class="mail-state-filters"><label :class="{ active: filters.unread }"><input v-model="filters.unread" type="checkbox" />未读 <span>{{ unreadCount }}</span></label><label :class="{ active: filters.starred }"><input v-model="filters.starred" type="checkbox" />星标</label></div>
-      <button class="list-refresh" :disabled="loading" @click="loadList()"><Refresh :class="{ spinning: loading }" /><span>{{ loading ? '刷新中…' : '刷新列表' }}</span></button>
+      <button class="list-refresh" :disabled="loading || syncing || metaLoading" @click="refresh"><Refresh :class="{ spinning: loading || syncing }" /><span>{{ syncing ? '上游检查中…' : loading ? '刷新中…' : '刷新' }}</span></button>
     </div>
     <div v-if="hasFilters" class="active-mail-filters"><span>已应用筛选 · {{ total }} 封结果</span><button @click="clearFilters">清除筛选<Close /></button></div>
     <span class="sr-only" role="status" aria-live="polite">{{ loading ? '正在读取邮件列表' : `当前列表共有 ${total} 封邮件` }}</span>
