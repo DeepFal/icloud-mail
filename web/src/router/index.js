@@ -41,15 +41,15 @@ const routes = [
         path: "tasks",
         name: "tasks",
         component: () => import("../workspace/TasksView.vue"),
-        meta: { title: "任务中心", subtitle: "补取、创建与删除任务" },
+        meta: { title: "任务", subtitle: "补取、创建与删除任务" },
       },
       {
         path: "accounts",
         name: "accounts",
         component: () => import("../views/AccountsView.vue"),
         meta: {
-          title: "主号管理",
-          subtitle: "配置接收隐私邮箱转发邮件的 iCloud IMAP 主号",
+          title: "主号",
+          subtitle: "配置接收隐私地址转发邮件的 iCloud IMAP 主号",
         },
       },
       {
@@ -70,7 +70,7 @@ const routes = [
         component: () => import("../views/AccountDetailView.vue"),
         meta: {
           title: "主号详情",
-          subtitle: "管理 IMAP 连接、同步状态和所属隐私邮箱",
+          subtitle: "管理 IMAP 连接、同步状态和所属隐私地址",
           dynamicTitle: true,
         },
       },
@@ -79,7 +79,7 @@ const routes = [
         name: "aliases",
         component: () => import("../views/AliasesView.vue"),
         meta: {
-          title: "隐私邮箱",
+          title: "隐私地址",
           subtitle: "查看每个地址的主号归属、完整凭证和最新收件时间",
         },
       },
@@ -87,7 +87,7 @@ const routes = [
         path: "pool",
         name: "pool",
         component: () => import("../views/PoolView.vue"),
-        meta: { title: "项目与 API", subtitle: "管理空闲库存、项目 API 和自动创建" },
+        meta: { title: "邮箱池", subtitle: "管理空闲库存、项目 API 和自动创建" },
       },
       {
         path: "audit",
@@ -100,7 +100,7 @@ const routes = [
         name: "logs",
         component: () => import("../views/LogsView.vue"),
         meta: {
-          title: "全部日志",
+          title: "运行日志",
           subtitle: "查看服务运行、同步与后台请求日志",
         },
       },

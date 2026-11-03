@@ -194,7 +194,7 @@
           </div>
           </dl>
           <p v-if="account.mailTransport === 'webmail'" class="field-help">使用 iCloud Web 目录登录态读取邮件；后台接收开关与手动取件共用收件预算。历史补取需要 IMAP 连接。</p>
-          <p v-else class="field-help">IMAP 是邮件读取协议，不是 Apple 隐私邮箱的新旧创建通道。</p>
+          <p v-else class="field-help">IMAP 是邮件读取协议，不是 Apple 隐私地址的新旧创建通道。</p>
           <el-button
             v-if="account.mailTransport !== 'webmail'"
             :icon="Refresh"
@@ -228,7 +228,7 @@
       <section class="section-block" aria-labelledby="aliases-title">
         <SectionHeader
           id="aliases-title"
-          title="隐私邮箱"
+          title="隐私地址"
         >
           <template #actions>
             <el-button
@@ -293,7 +293,7 @@
           <div class="auto-creation-panel__header">
             <div class="auto-creation-panel__copy">
               <div class="auto-creation-panel__title-row">
-                <h3 id="auto-creation-title">自动创建隐私邮箱</h3>
+                <h3 id="auto-creation-title">自动创建隐私地址</h3>
                 <el-tag
                   :type="autoCreationStatusType(autoCreation)"
                   effect="plain"
@@ -318,7 +318,7 @@
                 :disabled="autoCreationToggleDisabled"
                 active-text="开启"
                 inactive-text="关闭"
-                :aria-label="`${autoCreation.enabled ? '关闭' : '开启'}自动创建隐私邮箱`"
+                :aria-label="`${autoCreation.enabled ? '关闭' : '开启'}自动创建隐私地址`"
                 @change="toggleAutoCreation"
               />
             </div>
@@ -331,7 +331,7 @@
             </p>
             <dl class="auto-creation-metrics">
             <div>
-              <dt>当前隐私邮箱</dt>
+              <dt>当前隐私地址</dt>
               <dd aria-live="polite" aria-atomic="true">
                 {{ account.aliasCount }}
               </dd>
@@ -423,7 +423,7 @@
         <div
           class="account-alias-search"
           role="search"
-          aria-label="搜索当前主号隐私邮箱"
+          aria-label="搜索当前主号隐私地址"
         >
           <label class="account-alias-search__field">
             <span>关键词</span>
@@ -432,7 +432,7 @@
               clearable
               maxlength="200"
               :prefix-icon="Search"
-              aria-label="关键词：模糊搜索当前主号隐私邮箱"
+              aria-label="关键词：模糊搜索当前主号隐私地址"
               placeholder="邮箱地址或用途备注"
               @keyup.enter="applyAliasSearch"
               @clear="applyAliasSearch"
@@ -536,7 +536,7 @@
                 :model-value="allAliasesSelected"
                 :indeterminate="someAliasesSelected"
                 :disabled="!selectableAliases.length || aliasSelectionBusy"
-                aria-label="勾选本页隐私邮箱"
+                aria-label="勾选本页隐私地址"
                 @change="setAllAliasesSelected"
               />
               <template v-else>{{ column.title }}</template>
@@ -563,7 +563,7 @@
                   :model-value="row.groupId == null ? '' : String(row.groupId)"
                   :loading="groupsLoading || Boolean(groupMoveLoading[row.id])"
                   :disabled="groupsLoading || isAliasActionBusy(row)"
-                  aria-label="选择隐私邮箱分组"
+                  aria-label="选择隐私地址分组"
                   @change="moveAliasToGroup(row, $event)"
                 >
                   <el-option label="未分组" value="" />
@@ -596,7 +596,7 @@
                   :model-value="row.configuredEnabled"
                   :loading="Boolean(toggleLoading[row.id])"
                   :disabled="isAliasActionBusy(row)"
-                  :aria-label="`启用隐私邮箱 ${row.address}`"
+                  :aria-label="`启用隐私地址 ${row.address}`"
                   @change="(enabled) => toggleAlias(row, enabled)"
                 />
                 <span v-else-if="!row.configuredEnabled" class="muted-text">已停用</span>
@@ -641,7 +641,7 @@
                     />
                   </el-tooltip>
                   <el-tooltip
-                    :content="isCustomMailbox ? '从本地永久删除邮箱' : '从 iCloud 永久删除隐私邮箱'"
+                    :content="isCustomMailbox ? '从本地永久删除邮箱' : '从 iCloud 永久删除隐私地址'"
                     placement="top"
                   >
                     <el-button
@@ -651,7 +651,7 @@
                       circle
                       :loading="Boolean(deleteLoading[row.id])"
                       :disabled="isAliasActionBusy(row)"
-                      :aria-label="`${isCustomMailbox ? '从本地永久删除邮箱' : '从 iCloud 永久删除隐私邮箱'} ${row.address}`"
+                      :aria-label="`${isCustomMailbox ? '从本地永久删除邮箱' : '从 iCloud 永久删除隐私地址'} ${row.address}`"
                       @click="removeAlias(row)"
                     />
                   </el-tooltip>
@@ -705,7 +705,7 @@
                     :model-value="alias.groupId == null ? '' : String(alias.groupId)"
                     :loading="groupsLoading || Boolean(groupMoveLoading[alias.id])"
                     :disabled="groupsLoading || isAliasActionBusy(alias)"
-                    aria-label="选择隐私邮箱分组"
+                    aria-label="选择隐私地址分组"
                     @change="moveAliasToGroup(alias, $event)"
                   >
                     <el-option label="未分组" value="" />
@@ -726,7 +726,7 @@
                     :model-value="alias.configuredEnabled"
                     :loading="Boolean(toggleLoading[alias.id])"
                     :disabled="isAliasActionBusy(alias)"
-                    :aria-label="`启用隐私邮箱 ${alias.address}`"
+                    :aria-label="`启用隐私地址 ${alias.address}`"
                     @change="(enabled) => toggleAlias(alias, enabled)"
                   />
                   <span v-else>{{ alias.configuredEnabled ? "随主号暂停" : "已停用" }}</span>
@@ -791,10 +791,10 @@
           class="empty-state--compact"
           level="h3"
           :title="appliedAliasQuery
-            ? '没有匹配的隐私邮箱'
+            ? '没有匹配的隐私地址'
             : isCustomMailbox
               ? '尚未生成邮箱'
-              : '尚未登记隐私邮箱'"
+              : '尚未登记隐私地址'"
           :description="appliedAliasQuery
             ? '请尝试其他关键词，或清空搜索后查看全部邮箱。'
             : isCustomMailbox
@@ -815,7 +815,7 @@
           :page-size="pageSize"
           :total="total"
           :loading="loading"
-          aria-label="主号隐私邮箱列表分页"
+          aria-label="主号隐私地址列表分页"
           @change="handlePageChange"
           @size-change="handlePageSizeChange"
         />
@@ -836,7 +836,7 @@
             closable
             @close="aliasFormError = null"
           />
-          <el-form-item label="隐私邮箱地址" prop="address">
+          <el-form-item label="隐私地址地址" prop="address">
             <el-input
               v-model="aliasForm.address"
               type="email"
@@ -868,7 +868,7 @@
       <section class="danger-zone" aria-labelledby="delete-account-title">
         <div>
           <h2 id="delete-account-title">删除主号</h2>
-          <p>同时删除其隐私邮箱、完整凭证与全部本地邮件归档。</p>
+          <p>同时删除其隐私地址、完整凭证与全部本地邮件归档。</p>
         </div>
         <el-button
           type="danger"
@@ -1114,7 +1114,7 @@ const aliasColumns = Object.freeze([
   {
     key: "address",
     dataKey: "address",
-    title: "隐私邮箱",
+    title: "隐私地址",
     width: 230,
     minWidth: 230,
     flexGrow: 1,
@@ -1217,13 +1217,13 @@ const AUTO_CREATION_ERROR_MESSAGES = Object.freeze({
   APPLE_ACCOUNT_MISMATCH:
     "Apple 登录账户或隐藏邮件地址的默认转发目标与当前主号不匹配，请确认登录了正确的 Apple 账户，并在 iCloud 设置中把‘转发到’改为当前主号后重新开启",
   APPLE_FORWARDING_TARGET_MISSING:
-    "Apple 未能确认隐私邮箱的默认转发目标，本次没有发起创建；请确认当前主号可作为转发邮箱，或先在 iCloud 手动创建一个隐私邮箱后重新同步",
+    "Apple 未能确认隐私地址的默认转发目标，本次没有发起创建；请确认当前主号可作为转发邮箱，或先在 iCloud 手动创建一个隐私地址后重新同步",
   ACCOUNT_CHANGED: "主号信息在创建过程中发生变化，请刷新页面并确认主号信息后重试",
   ALIAS_OWNERSHIP_CONFLICT:
-    "Apple 创建的隐私邮箱已属于其他主号，请检查主号归属后重试",
+    "Apple 创建的隐私地址已属于其他主号，请检查主号归属后重试",
   ACCOUNT_DISABLED: "当前主号已停用，请先启用主号后再开启自动创建",
   AUTO_CREATION_UNAVAILABLE: "自动创建服务暂不可用，请稍后重试",
-  ALIAS_LIMIT_REACHED: "当前主号已达到隐私邮箱容量上限，请确认自动创建计划状态",
+  ALIAS_LIMIT_REACHED: "当前主号已达到隐私地址容量上限，请确认自动创建计划状态",
   AUTO_CREATE_PLAN_CORRECTION_FAILED: "认领计划后无法保存下一次执行时间，请检查数据库状态",
   AUTO_CREATE_SCHEDULE_ERROR: "自动创建计划处理失败，请查看失败阶段和操作位置",
   AUTO_CREATION_PERSISTENCE_ERROR: "自动创建结果未能完整写入数据库，请检查数据库状态",
@@ -1418,7 +1418,7 @@ function redirectExpiredSession() {
 function validateAliasAddress(_, value, callback) {
   const normalized = String(value || "").trim();
   if (!normalized) {
-    callback(new Error("请填写隐私邮箱地址"));
+    callback(new Error("请填写隐私地址地址"));
     return;
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
@@ -1683,7 +1683,7 @@ async function loadDetail({ silent = false } = {}) {
       detail.account.mailboxType === "custom"
         ? `@${detail.account.emailSuffix}`
         : detail.account.email,
-      "管理按需收件凭据与隐私邮箱地址目录",
+      "管理按需收件凭据与隐私地址地址目录",
     );
     return true;
   } catch (error) {
@@ -2028,8 +2028,8 @@ async function performSetAutoCreation(enabled) {
     autoCreation.value = updated;
     successMessage(
       desiredEnabled
-        ? "自动创建隐私邮箱已开启。"
-        : "自动创建隐私邮箱已关闭。",
+        ? "自动创建隐私地址已开启。"
+        : "自动创建隐私地址已关闭。",
     );
     return true;
   } catch (error) {
@@ -2084,7 +2084,7 @@ async function performAliasesSync({ afterAuthentication = false } = {}) {
     if (!detailLoaded) {
       ElMessage({
         type: "warning",
-        message: "隐私邮箱同步已完成，但邮箱列表刷新失败，请重新加载邮箱列表。",
+        message: "隐私地址同步已完成，但邮箱列表刷新失败，请重新加载邮箱列表。",
       });
       return;
     }
@@ -2116,7 +2116,7 @@ async function performAliasesSync({ afterAuthentication = false } = {}) {
       openAppleLogin({ error, resumeSync: true });
       return;
     }
-    showRequestError(error, "隐私邮箱同步失败，请稍后重试。");
+    showRequestError(error, "隐私地址同步失败，请稍后重试。");
   } finally {
     aliasesSyncLoading.value = false;
   }
@@ -2185,7 +2185,7 @@ async function addAlias() {
     if (!isCurrentAccount(accountId)) return;
     Object.assign(aliasForm, { address: "", label: "" });
     aliasFormRef.value?.resetFields();
-    successMessage("隐私邮箱已添加，整套凭证已签发，可通过列表中的复制操作导出。");
+    successMessage("隐私地址已添加，整套凭证已签发，可通过列表中的复制操作导出。");
   } catch (error) {
     sessionInvalid = isSessionInvalid(error);
     if (!isCurrentAccount(accountId)) return;
@@ -2406,10 +2406,10 @@ async function toggleAlias(alias, enabled) {
     if (!isCurrentAccount(accountId)) return;
     replaceAlias(updated);
     if (aliasEnabledFilter.value !== "") await loadDetail();
-    successMessage(enabled ? "隐私邮箱已启用。" : "隐私邮箱已停用。");
+    successMessage(enabled ? "隐私地址已启用。" : "隐私地址已停用。");
   } catch (error) {
     if (!isCurrentAccount(accountId)) return;
-    showRequestError(error, "隐私邮箱状态更新失败，请稍后重试。");
+    showRequestError(error, "隐私地址状态更新失败，请稍后重试。");
   } finally {
     delete toggleLoading[alias.id];
     aliasActionLock.release(alias.id);
@@ -2430,10 +2430,10 @@ async function moveAliasToGroup(alias, groupValue) {
     if (!isCurrentAccount(accountId)) return;
     replaceAlias(updated);
     await loadMailGroups();
-    successMessage("隐私邮箱分组已更新。");
+    successMessage("隐私地址分组已更新。");
   } catch (error) {
     if (isCurrentAccount(accountId)) {
-      showRequestError(error, "隐私邮箱分组移动失败，请稍后重试。");
+      showRequestError(error, "隐私地址分组移动失败，请稍后重试。");
     }
   } finally {
     delete groupMoveLoading[alias.id];
@@ -2456,7 +2456,7 @@ async function removeAlias(alias) {
     await ElMessageBox.confirm(
       customMailbox
         ? "删除后，该邮箱将从本地永久删除，同时清除完整凭证、邮件归档映射及关联记录，且无法恢复。继续吗？"
-        : "删除后，该隐私邮箱将从 iCloud 永久删除，同时清除本地完整凭证、邮件归档映射及关联记录，且无法恢复。继续吗？",
+        : "删除后，该隐私地址将从 iCloud 永久删除，同时清除本地完整凭证、邮件归档映射及关联记录，且无法恢复。继续吗？",
       `${customMailbox ? "从本地永久删除" : "从 iCloud 永久删除"} ${alias.address}`,
       {
         type: "warning",
@@ -2474,7 +2474,7 @@ async function removeAlias(alias) {
     successMessage(
       customMailbox
         ? "邮箱已从本地永久删除。"
-        : "隐私邮箱已从 iCloud 和本地永久删除。",
+        : "隐私地址已从 iCloud 和本地永久删除。",
     );
   } catch (error) {
     if (confirmationCancelled(error)) return;
@@ -2488,7 +2488,7 @@ async function removeAlias(alias) {
     }
     showRequestError(
       error,
-      "隐私邮箱删除未完成，本地记录已保留，请稍后重试。",
+      "隐私地址删除未完成，本地记录已保留，请稍后重试。",
     );
   } finally {
     delete deleteLoading[alias.id];

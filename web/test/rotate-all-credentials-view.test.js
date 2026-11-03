@@ -50,7 +50,7 @@ test("all-alias rotation is a locked danger action with password and phrase conf
     source.indexOf("<script setup>"),
   );
   const marker = template.indexOf(
-    'aria-label="轮换所有隐私邮箱令牌与凭证"',
+    'aria-label="轮换所有隐私地址令牌与凭证"',
   );
   assert.notEqual(marker, -1);
   const button = template.slice(

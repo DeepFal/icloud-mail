@@ -59,7 +59,7 @@ async function act(job, name) {
   try {
     const path = name === 'stop' ? `/accounts/${job.account_id}/aliases/creation-job/stop` : `/accounts/${job.account_id}/history-jobs/${encodeURIComponent(job.id)}/${name}`
     await apiRequest(path, { method: 'POST', body: {}, csrfToken: auth.state.csrfToken })
-    ElMessage.info('操作已提交，状态仍以任务中心为准'); await load()
+    ElMessage.info('操作已提交，状态仍以任务为准'); await load()
   } catch (e) { ElMessage.error(e.message || '操作失败') } finally { busy.value = '' }
 }
 
@@ -77,7 +77,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="tasks">
-    <header><div><h1>任务中心</h1></div><button class="btn btn-quiet" @click="load">刷新</button></header>
+    <header><div><h1>任务</h1></div><button class="btn btn-quiet" @click="load">刷新</button></header>
     <nav class="tabs"><button v-for="item in [['all', '全部'], ['history', '历史补取'], ['create', '地址创建'], ['delete', '删除']]" :key="item[0]" :class="{ active: filter === item[0] }" @click="filter = item[0]">{{ item[1] }}</button></nav>
     <p v-if="error" class="error">{{ error }}</p><div v-if="loading" class="empty">正在读取任务…</div><div v-else-if="!groups.length" class="empty">暂无任务</div>
     <div v-else class="cards"><article v-for="job in groups" :key="`${job.type}-${job.account_id}-${job.id || job.job_id || job.plan_id || 'default'}`" class="card">

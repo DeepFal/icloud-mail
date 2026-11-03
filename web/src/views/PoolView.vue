@@ -2,7 +2,7 @@
   <el-config-provider :locale="zhCn">
     <section class="page-stack pool-page">
       <SectionHeader
-        title="项目与 API"
+        title="邮箱池"
       >
         <template #actions
           ><el-button :loading="loading" @click="refresh(true)"
@@ -256,7 +256,7 @@
           ></el-table></div>
           <p class="pool-hint">
             停用项目会停止其邮箱池 API
-            访问。已发放的单邮箱凭据可在「隐私邮箱」中单独轮换或停用。
+            访问。已发放的单邮箱凭据可在「隐私地址」中单独轮换或停用。
           </p>
         </el-tab-pane>
 
@@ -268,7 +268,7 @@
           </p>
           <el-table
             :data="accounts"
-            empty-text="先到「主号管理」添加账号，并完成 Apple 登录。"
+            empty-text="先到「主号」添加账号，并完成 Apple 登录。"
           >
             <el-table-column label="主号" min-width="240"
               ><template #default="{ row }"

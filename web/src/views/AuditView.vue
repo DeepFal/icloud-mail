@@ -155,7 +155,7 @@ import {
 const resourceLabels = {
   admin: "管理员",
   account: "主号",
-  alias: "隐私邮箱",
+  alias: "隐私地址",
   mail_group: "邮箱分组",
   pool: "邮箱池",
   pool_client: "邮箱池项目",

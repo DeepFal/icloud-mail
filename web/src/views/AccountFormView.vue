@@ -71,7 +71,7 @@
             :readonly="emailLocked"
           />
           <p v-if="emailLocked" class="field-help">
-            已有隐私邮箱后，主号邮箱不能修改。
+            已有隐私地址后，主号邮箱不能修改。
           </p>
         </el-form-item>
 
@@ -334,7 +334,7 @@ const receiveRuleHelp = computed(() => {
     case "icloud-forwarded":
       return "保留 iCloud 隐私邮箱类型；系统会结合 X-ICLOUD-HME 和转发链路投递标头匹配地址。";
     default:
-      return "使用 iCloud IMAP 的主号投递标头匹配隐私邮箱。";
+      return "使用 iCloud IMAP 的主号投递标头匹配隐私地址。";
   }
 });
 

@@ -44,7 +44,7 @@ function autoCreationErrorFormatter(source) {
 test("account detail exposes automatic alias creation with persistent credential handling", async () => {
   const source = await readFile(viewPath, "utf8");
 
-  assert.match(source, /<el-switch[\s\S]*自动创建隐私邮箱/);
+  assert.match(source, /<el-switch[\s\S]*自动创建隐私地址/);
   assert.match(source, /resumeAutoCreationAfterAuth/);
   assert.match(source, /autoCreation\.plannedTimes\?\.length/);
   assert.match(source, /autoCreation\.plannedAt/);
@@ -125,7 +125,7 @@ test("account detail explains account-level suspension and automatic restoration
 
 test("batch creation panel is directly below the privacy-mail directory", async () => {
   const source = await readFile(viewPath, "utf8");
-  const directory = source.indexOf('title="隐私邮箱"');
+  const directory = source.indexOf('title="隐私地址"');
   const batch = source.indexOf("alias-creation-row");
   const automatic = source.indexOf('id="auto-creation-title"');
   assert.ok(directory >= 0 && batch > directory && automatic > batch);
@@ -230,7 +230,7 @@ test("alias deletion is presented as an irreversible iCloud operation", async ()
   const source = await readFile(viewPath, "utf8");
   const remove = functionBody(source, "async function removeAlias");
 
-  assert.match(source, /从 iCloud 永久删除隐私邮箱/);
+  assert.match(source, /从 iCloud 永久删除隐私地址/);
   assert.match(remove, /将从 iCloud 永久删除/);
   assert.match(remove, /且无法恢复/);
   assert.match(remove, /await deleteAlias\(alias\.id/);

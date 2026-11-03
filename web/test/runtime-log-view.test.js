@@ -8,7 +8,7 @@ const detailPath = new URL(
   import.meta.url,
 );
 const routerPath = new URL("../src/router/index.js", import.meta.url);
-const layoutPath = new URL("../src/layouts/AdminLayout.vue", import.meta.url);
+const layoutPath = new URL("../src/workspace/WorkspaceLayout.vue", import.meta.url);
 
 function functionBody(source, signature) {
   const start = source.indexOf(signature);
@@ -34,7 +34,7 @@ test("all logs view is routed and exposed in admin navigation", async () => {
 
   assert.match(router, /path:\s*"logs"[\s\S]{0,100}name:\s*"logs"/);
   assert.match(router, /import\("\.\.\/views\/LogsView\.vue"\)/);
-  assert.match(layout, /to:\s*\{\s*name:\s*"logs"\s*\}[\s\S]{0,100}label:\s*"全部日志"/);
+  assert.match(layout, /label:\s*"运行日志"[\s\S]{0,40}to:\s*\{\s*name:\s*"logs"\s*\}/);
 });
 
 test("all logs view supports filters, selectable pages, batched all-items loading, live refresh, and responsive records", async () => {

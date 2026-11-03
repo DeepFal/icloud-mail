@@ -31,7 +31,7 @@ import { createLiveRefresh } from "../utils/liveRefresh.js";
 import { connectionTarget as getConnectionTarget, summarizeConnections } from "../utils/workspaceConnection.js";
 import "./workspace-shell.css";
 const auth = useAuth(); const page = usePageHeader(); const route = useRoute(); const router = useRouter(); const drawerOpen = ref(false); const logoutLoading = ref(false); const accounts = ref([]); const contentContainer = ref(null);
-const primary = [{ name: "inbox", label: "收件箱", to: { name: "inbox" }, icon: Message }, { name: "aliases", label: "隐私地址", to: { name: "aliases" }, icon: Collection }, { name: "services", label: "服务登记", to: { name: "services" }, icon: Notebook }, { name: "accounts", label: "主号与连接", to: { name: "accounts" }, icon: Connection }, { name: "pool", label: "项目与 API", to: { name: "pool" }, icon: Key }, { name: "tasks", label: "任务中心", to: { name: "tasks" }, icon: Tickets }];
+const primary = [{ name: "inbox", label: "收件箱", to: { name: "inbox" }, icon: Message }, { name: "aliases", label: "隐私地址", to: { name: "aliases" }, icon: Collection }, { name: "services", label: "服务登记", to: { name: "services" }, icon: Notebook }, { name: "accounts", label: "主号", to: { name: "accounts" }, icon: Connection }, { name: "pool", label: "邮箱池", to: { name: "pool" }, icon: Key }, { name: "tasks", label: "任务", to: { name: "tasks" }, icon: Tickets }];
 const admin = [{ name: "audit", label: "操作记录", to: { name: "audit" }, icon: Document }, { name: "logs", label: "运行日志", to: { name: "logs" }, icon: Tickets }, { name: "security", label: "安全设置", to: { name: "security" }, icon: Lock }];
 const accountsLoaded = ref(false);
 const accountsError = ref(false);

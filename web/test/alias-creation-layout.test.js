@@ -52,7 +52,7 @@ test("batch creation stays compact without progress or created-address summary",
 
 test("batch creation is a sibling section of the Apple directory section", async () => {
   const source = await readFile(viewPath, "utf8");
-  const directory = source.indexOf('title="隐私邮箱"');
+  const directory = source.indexOf('title="隐私地址"');
   const batch = source.indexOf("alias-creation-row");
   const batchSectionEnd = source.indexOf("</section>", batch);
   const following = source.indexOf('<section class="section-block">', batchSectionEnd);

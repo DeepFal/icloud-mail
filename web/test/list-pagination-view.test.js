@@ -85,7 +85,7 @@ test("alias paging resets on filters and supports full batched display/export", 
   );
   assert.match(source, /v-model="keywordDraft"/);
   assert.match(source, /placeholder="邮箱地址或用途备注"/);
-  assert.match(source, /aria-label="关键词：模糊搜索隐私邮箱"/);
+  assert.match(source, /aria-label="关键词：模糊搜索隐私地址"/);
   assert.match(source, /v-model="selectedLatestMailFilter"/);
   assert.match(source, /<el-option label="没有邮件" value="none"/);
   assert.match(source, /<el-option label="有邮件" value="yes"/);
@@ -113,7 +113,7 @@ test("alias paging resets on filters and supports full batched display/export", 
   assert.match(source, /withoutLatestMail:\s*withoutLatestMail\.value/);
   assert.match(source, /withLatestMail:\s*withLatestMail\.value/);
   assert.match(source, /appliedAliasQuery \|\| appliedGroupId \|\| selectedLatestMailFilter/);
-  assert.match(source, /没有匹配的隐私邮箱/);
+  assert.match(source, /没有匹配的隐私地址/);
   assert.match(source, /:remote-method="searchAccounts"/);
   assert.match(source, /getAccountPage\(\{/);
   assert.match(source, /getAllAliases\(accountId,/);
@@ -228,7 +228,7 @@ test("account detail aliases use the shared server-backed pagination contract", 
   assert.match(source, /getAllAliases\(accountId,\s*\{\s*signal:/);
   assert.match(source, /v-model="aliasQueryDraft"/);
   assert.match(source, /placeholder="邮箱地址或用途备注"/);
-  assert.match(source, /aria-label="关键词：模糊搜索当前主号隐私邮箱"/);
+  assert.match(source, /aria-label="关键词：模糊搜索当前主号隐私地址"/);
   assert.match(source, /@keyup\.enter="applyAliasSearch"/);
   assert.match(source, /@clear="applyAliasSearch"/);
   assert.match(
@@ -251,7 +251,7 @@ test("account detail aliases use the shared server-backed pagination contract", 
     source,
     /function resetAliasSearchResults[\s\S]{0,160}currentPage\.value = 1/,
   );
-  assert.match(source, /没有匹配的隐私邮箱/);
+  assert.match(source, /没有匹配的隐私地址/);
   assert.match(source, /detail\?\.pagination\?\.total/);
   assert.match(source, /if \(!allItems && page > lastPage\)/);
   assert.match(source, /currentPage\.value = lastPage/);

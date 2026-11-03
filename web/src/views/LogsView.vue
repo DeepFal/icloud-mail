@@ -5,7 +5,7 @@
   >
     <SectionHeader
       id="logs-section-title"
-      title="全部日志"
+      title="运行日志"
     >
       <template #actions>
         <div class="runtime-log-auto-refresh">

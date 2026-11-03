@@ -57,7 +57,7 @@ async function copyKey(id) {
   <section class="project-panel workspace-page">
     <div class="page-heading panel-heading">
       <div>
-        <div class="page-eyebrow">项目与 API</div>
+        <div class="page-eyebrow">邮箱池</div>
         <h1>把隐私地址分配给程序</h1>
         <p class="page-description">从现有隐私地址中分配给程序。这里展示的是演示数据，当前为本地模拟。</p>
       </div>

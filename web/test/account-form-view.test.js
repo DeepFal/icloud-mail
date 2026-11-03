@@ -27,10 +27,10 @@ test("account form exposes editable IMAP host and port with iCloud defaults", as
   assert.ok(imapUsernameField, "IMAP username form item should be present");
   assert.match(emailField, /v-model="form\.email"/);
   assert.match(emailField, /:readonly="emailLocked"/);
-  assert.match(emailField, /已有隐私邮箱后，主号邮箱不能修改。/);
+  assert.match(emailField, /已有隐私地址后，主号邮箱不能修改。/);
   assert.match(imapUsernameField, /v-model="form\.imapUsername"/);
   assert.doesNotMatch(imapUsernameField, /:readonly=/);
-  assert.doesNotMatch(imapUsernameField, /已有隐私邮箱后，主号邮箱不能修改。/);
+  assert.doesNotMatch(imapUsernameField, /已有隐私地址后，主号邮箱不能修改。/);
   assert.doesNotMatch(source, /主号邮箱和 IMAP 用户名不能修改/);
   assert.match(source, /v-model="form\.imapHost"/);
   assert.match(source, /v-model="form\.imapPort"/);
