@@ -8,6 +8,7 @@ import { apiRequest } from "../api/client.js";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
 import MailboxProfileDrawer from "./MailboxProfileDrawer.vue";
 import { getServices, createService, updateService, getServiceMailboxes, batchSaveRegistrations, registrationStates, registrationLabel } from "./registry-api.js";
+import "../styles/pages.css";
 import "./service-registry.css";
 const auth = useAuth(), route = useRoute(), router = useRouter();
 const services = ref([]), accounts = ref([]), groups = ref([]), aliases = ref([]);
@@ -27,6 +28,7 @@ const serviceOptions = computed(() => services.value.map((item) => ({ value: Str
 const accountOptions = computed(() => accounts.value.map((item) => ({ value: String(item.id), label: item.email, secondary: item.name })));
 const groupOptions = computed(() => groups.value.map((item) => ({ value: String(item.id), label: item.name })));
 const aliasOptions = computed(() => aliases.value.map((item) => ({ value: String(item.id), label: item.address, note: item.note })));
+function registrationTone(status) { return status === "registered" ? "is-success" : status === "pending" ? "is-warning" : ""; }
 const pages = computed(() => Math.max(1, Math.ceil(total.value / 50)));
 const allSelected = computed(() => mailboxes.value.length > 0 && mailboxes.value.every((item) => selection.value.includes(item.alias_id)));
 const partialSelected = computed(() => selection.value.length > 0 && !allSelected.value);
@@ -112,44 +114,106 @@ onMounted(() => { loadMeta(); loadServices(); });
 onBeforeUnmount(() => { disposed = true; serviceVersion++; listVersion++; clearTimeout(debounce); listController?.abort(); serviceController?.abort(); metaController?.abort(); });
 </script>
 <template>
-  <section class="service-registry">
-    <header class="registry-heading"><h1>服务登记</h1><div class="registry-heading-actions"><SearchableMailboxSelect model-value="" :options="aliasOptions" aria-label="查找邮箱资料" placeholder="查找邮箱资料…" @change="(id) => { if (id) openProfile(id); }" /><el-button :icon="Plus" @click="beginService()">新建服务</el-button></div></header>
-    <p class="registry-intro">记录每个邮箱在哪些服务注册了账号。登记由你确认，“未记录”不等于“未注册”。</p>
-    <p v-if="metaError" class="registry-error" role="alert">{{ metaError }}<el-button @click="loadMeta">重读邮箱选项</el-button></p>
-    <p v-if="serviceError" class="registry-error" role="alert">{{ serviceError }}<el-button @click="loadServices()">重新读取服务</el-button></p>
-    <form v-if="editorOpen" class="service-editor" @submit.prevent="saveService">
-      <h2>{{ editingServiceId ? '编辑服务' : '新建服务' }}</h2>
-      <div class="service-editor-fields"><label>服务名称<el-input v-model="editorName" :maxlength="100" placeholder="例如：GitHub" :disabled="editorBusy" /></label><label>域名（可选）<el-input v-model="editorDomain" :maxlength="253" placeholder="例如：github.com" :disabled="editorBusy" /></label><label class="service-note-field">服务说明（可选）<el-input v-model="editorNote" type="textarea" :rows="2" :maxlength="2000" :disabled="editorBusy" /></label></div>
-      <p v-if="editorError" role="alert" class="registry-error">{{ editorError }}</p>
-      <div class="service-editor-actions"><el-button :disabled="editorBusy" @click="editorOpen = false">取消</el-button><el-button type="primary" native-type="submit" :loading="editorBusy" :disabled="editorBusy">保存服务</el-button></div>
-    </form>
+  <section class="pg pg--fill service-registry" aria-labelledby="registry-title">
+    <header class="pg-bar">
+      <h1 id="registry-title" class="pg-title">服务登记</h1>
+      <SearchableMailboxSelect class="registry-find" model-value="" :options="aliasOptions" aria-label="查找邮箱资料" placeholder="查找邮箱资料…" @change="(id) => { if (id) openProfile(id); }" />
+      <div class="pg-bar__end"><el-button :icon="Plus" @click="beginService()">新建服务</el-button></div>
+    </header>
+    <p v-if="metaError" class="registry-error" role="alert">{{ metaError }}<el-button link type="primary" @click="loadMeta">重读邮箱选项</el-button></p>
+    <p v-if="serviceError" class="registry-error" role="alert">{{ serviceError }}<el-button link type="primary" @click="loadServices()">重新读取服务</el-button></p>
     <div class="registry-workspace">
       <aside class="service-directory" aria-label="服务目录">
-        <label class="service-directory-search"><Search /><input v-model="serviceQuery" maxlength="200" aria-label="搜索服务" placeholder="搜索服务或域名" /></label>
-        <label class="service-archive-filter"><input v-model="includeArchived" type="checkbox" />包含已归档</label>
-        <div v-if="servicesLoading" class="registry-empty" role="status">正在读取服务…</div>
-        <template v-else><button v-for="service in shownServices" :key="service.id" :class="['service-directory-item', { active: String(service.id) === serviceId }]" :aria-pressed="String(service.id) === serviceId" :disabled="batchBusy" @click="chooseService(service.id)"><strong>{{ service.name }}<span v-if="service.archived">已归档</span></strong><small v-if="service.domain">{{ service.domain }}</small></button><div v-if="!shownServices.length" class="registry-empty">{{ services.length ? '没有匹配的服务，试试其他名称。' : '还没有服务。先创建一个，再登记邮箱。' }}</div></template>
+        <div class="service-directory-head">
+          <el-input v-model="serviceQuery" :prefix-icon="Search" maxlength="200" aria-label="搜索服务" placeholder="搜索服务或域名…" clearable :spellcheck="false" />
+          <el-checkbox v-model="includeArchived" size="small">包含已归档</el-checkbox>
+        </div>
+        <div class="service-directory-list">
+          <p v-if="servicesLoading" class="registry-muted" role="status">正在读取服务…</p>
+          <template v-else>
+            <button v-for="service in shownServices" :key="service.id" type="button" :class="['service-directory-item', { active: String(service.id) === serviceId }]" :aria-pressed="String(service.id) === serviceId" :disabled="batchBusy" @click="chooseService(service.id)">
+              <strong class="pg-ellipsis">{{ service.name }}</strong>
+              <small v-if="service.archived" class="pg-badge">已归档</small>
+              <small v-else-if="service.domain" class="pg-ellipsis">{{ service.domain }}</small>
+            </button>
+            <p v-if="!shownServices.length" class="registry-muted">{{ services.length ? "没有匹配的服务。" : "还没有服务。" }}</p>
+          </template>
+        </div>
       </aside>
       <section class="service-mailboxes" aria-label="服务邮箱登记">
         <template v-if="currentService">
-          <header class="service-detail-heading"><div><h2>{{ currentService.name }}<span v-if="currentService.archived" class="service-archived">已归档</span></h2><p v-if="currentService.domain">{{ currentService.domain }}</p></div><div><el-button :disabled="editorBusy || batchBusy" @click="beginService(currentService)">编辑服务</el-button><el-button :disabled="editorBusy || batchBusy" @click="toggleArchive">{{ currentService.archived ? '恢复' : '归档' }}</el-button></div></header>
-          <p v-if="currentService.note" class="service-description">{{ currentService.note }}</p>
-          <div class="registry-filters"><label class="registry-query"><Search /><input v-model="query" aria-label="搜索登记邮箱" maxlength="200" placeholder="搜索邮箱、备注或账号标识…" :disabled="batchBusy" /></label><el-select v-model="status" aria-label="按登记状态筛选" placeholder="全部登记状态" :disabled="batchBusy"><el-option label="全部登记状态" value="" /><el-option label="未记录" value="unrecorded" /><el-option v-for="state in registrationStates" :key="state.value" :label="state.label" :value="state.value" /></el-select></div>
-          <div class="registry-secondary-filters"><SearchableMailboxSelect v-model="accountId" :options="accountOptions" aria-label="按主号筛选登记" placeholder="所有主号" :disabled="batchBusy" /><SearchableMailboxSelect v-model="groupId" :options="groupOptions" aria-label="按分组筛选登记" placeholder="所有分组" :disabled="batchBusy" /><label><input v-model="enabledOnly" type="checkbox" :disabled="batchBusy" />仅启用的邮箱</label><el-button :icon="Refresh" :loading="listLoading" :disabled="batchBusy" @click="loadMailboxes">刷新</el-button></div>
-          <div class="registry-selection"><label><input type="checkbox" :checked="allSelected" :indeterminate="partialSelected" :disabled="listLoading || batchBusy || !mailboxes.length" aria-label="选择本页邮箱" @change="selectPage($event.target.checked)" />本页全选</label><span>已选 {{ selection.length }} 个</span><button v-if="selection.length" :disabled="batchBusy" @click="selection = []">清空</button><el-button :disabled="!selection.length || batchBusy || currentService.archived" @click="batchError = ''; batchOpen = !batchOpen">批量登记</el-button><span class="registry-result-count">{{ total }} 个邮箱</span></div>
-          <form v-if="batchOpen" class="registry-batch-form" @submit.prevent="saveBatch"><strong>为 {{ selection.length }} 个邮箱登记 {{ currentService.name }}</strong><label>登记状态<el-select v-model="batchStatus" aria-label="批量登记状态" :disabled="batchBusy"><el-option v-for="state in registrationStates" :key="state.value" :value="state.value" :label="state.label" /></el-select></label><label>共同说明（可选）<el-input v-model="batchNote" :maxlength="2000" type="textarea" :rows="2" :disabled="batchBusy" /></label><p class="profile-hint">仅保存本地登记。选中的多个邮箱若使用不同账号标识，请分别在邮箱资料中登记。</p><p v-if="batchError" class="registry-error" role="alert">{{ batchError }}</p><div class="service-editor-actions"><el-button :disabled="batchBusy" @click="batchOpen = false">取消</el-button><el-button native-type="submit" type="primary" :loading="batchBusy" :disabled="!selection.length || batchBusy">检查并保存</el-button></div></form>
-          <p v-if="listError" class="registry-error" role="alert">{{ listError }}<el-button :disabled="listLoading" @click="loadMailboxes">重试</el-button></p>
-          <div v-if="listLoading && !mailboxes.length" class="registry-empty" role="status">正在读取邮箱登记…</div>
-          <div v-else-if="!mailboxes.length && !listError" class="registry-empty"><strong>没有符合条件的邮箱</strong><p>调整登记状态、主号或关键词。没有登记的邮箱只会出现在“未记录”中。</p><el-button @click="query = ''; status = ''; accountId = ''; groupId = ''; enabledOnly = false">清除筛选</el-button></div>
-          <div v-else class="registry-table-wrap" :aria-busy="listLoading">
-            <table class="registry-table"><thead><tr><th scope="col"><span class="sr-only">选择</span></th><th scope="col">邮箱与备注</th><th scope="col">分组</th><th scope="col">登记状态</th><th scope="col">操作</th></tr></thead><tbody><tr v-for="mailbox in mailboxes" :key="mailbox.alias_id" :class="{ selected: selection.includes(mailbox.alias_id) }"><td><input type="checkbox" :checked="selection.includes(mailbox.alias_id)" :disabled="batchBusy" :aria-label="`选择 ${mailbox.address}`" @change="selectMailbox(mailbox.alias_id, $event.target.checked)" /></td><td><strong>{{ mailbox.address }}</strong><small v-if="mailbox.note" :title="mailbox.note">{{ mailbox.note }}</small><small v-if="!mailbox.enabled">邮箱或所属主号已停用</small></td><td>{{ mailbox.group_name || '未分组' }}</td><td><span :class="['registration-status', `is-${mailbox.status}`]">{{ registrationLabel(mailbox.status) }}</span><small v-if="mailbox.registration_count > 1">{{ mailbox.registration_count }} 条登记</small></td><td><button :disabled="batchBusy" @click="openProfile(mailbox.alias_id)">资料</button><button v-if="!currentService.archived" :disabled="batchBusy" @click="openProfile(mailbox.alias_id, true)">登记</button></td></tr></tbody></table>
-            <div class="registry-mobile-records"><article v-for="mailbox in mailboxes" :key="mailbox.alias_id" class="registry-mobile-record"><label><input type="checkbox" :checked="selection.includes(mailbox.alias_id)" :disabled="batchBusy" :aria-label="`选择 ${mailbox.address}`" @change="selectMailbox(mailbox.alias_id, $event.target.checked)" /><strong>{{ mailbox.address }}</strong></label><p v-if="mailbox.note">{{ mailbox.note }}</p><div><span :class="['registration-status', `is-${mailbox.status}`]">{{ registrationLabel(mailbox.status) }}</span><small v-if="!mailbox.enabled">已停用</small><button :disabled="batchBusy" @click="openProfile(mailbox.alias_id)">邮箱资料</button><button v-if="!currentService.archived" :disabled="batchBusy" @click="openProfile(mailbox.alias_id, true)">登记</button></div></article></div>
+          <header class="service-detail-heading">
+            <h2 class="pg-ellipsis">{{ currentService.name }}</h2>
+            <span v-if="currentService.domain" class="pg-muted pg-ellipsis" translate="no">{{ currentService.domain }}</span>
+            <span v-if="currentService.archived" class="pg-badge">已归档</span>
+            <span v-if="currentService.note" class="service-description pg-ellipsis" :title="currentService.note">{{ currentService.note }}</span>
+            <div class="service-detail-actions">
+              <el-button size="small" :disabled="editorBusy || batchBusy" @click="beginService(currentService)">编辑服务</el-button>
+              <el-button size="small" :disabled="editorBusy || batchBusy" @click="toggleArchive">{{ currentService.archived ? "恢复" : "归档" }}</el-button>
+            </div>
+          </header>
+          <div v-if="selection.length" class="registry-filters registry-selection" role="toolbar" aria-label="批量操作">
+            <span class="registry-selection__count">已选 {{ selection.length }} 个</span>
+            <el-button size="small" type="primary" :disabled="batchBusy || currentService.archived" @click="batchError = ''; batchOpen = true">批量登记</el-button>
+            <el-button size="small" :disabled="batchBusy" @click="selection = []">取消选择</el-button>
+            <span class="registry-result-count">{{ total }} 个邮箱</span>
           </div>
-          <footer class="registry-pager"><el-button :disabled="page <= 1 || listLoading || batchBusy" @click="changePage(-1)">上一页</el-button><span>{{ page }} / {{ pages }} 页</span><el-button :disabled="page >= pages || listLoading || batchBusy" @click="changePage(1)">下一页</el-button></footer>
+          <div v-else class="registry-filters">
+            <el-input v-model="query" class="registry-query" :prefix-icon="Search" aria-label="搜索登记邮箱" maxlength="200" placeholder="邮箱、备注或账号标识…" clearable :spellcheck="false" :disabled="batchBusy" />
+            <el-select v-model="status" class="registry-status" aria-label="按登记状态筛选" placeholder="全部状态" :disabled="batchBusy"><el-option label="全部状态" value="" /><el-option label="未记录" value="unrecorded" /><el-option v-for="state in registrationStates" :key="state.value" :label="state.label" :value="state.value" /></el-select>
+            <SearchableMailboxSelect v-model="accountId" class="registry-filter-select" :options="accountOptions" aria-label="按主号筛选登记" placeholder="所有主号" :disabled="batchBusy" />
+            <SearchableMailboxSelect v-model="groupId" class="registry-filter-select" :options="groupOptions" aria-label="按分组筛选登记" placeholder="所有分组" :disabled="batchBusy" />
+            <el-checkbox v-model="enabledOnly" size="small" :disabled="batchBusy">仅启用</el-checkbox>
+            <span class="registry-result-count">{{ total }} 个邮箱</span>
+            <el-button size="small" :icon="Refresh" :loading="listLoading" :disabled="batchBusy" aria-label="刷新登记列表" title="刷新" @click="loadMailboxes" />
+          </div>
+          <p v-if="listError" class="registry-error" role="alert">{{ listError }}<el-button link type="primary" :disabled="listLoading" @click="loadMailboxes">重试</el-button></p>
+          <p v-if="listLoading && !mailboxes.length" class="registry-muted" role="status">正在读取邮箱登记…</p>
+          <div v-else-if="!mailboxes.length && !listError" class="registry-empty">
+            <p>没有符合条件的邮箱。没有登记的邮箱只会出现在“未记录”中。</p>
+            <el-button size="small" @click="query = ''; status = ''; accountId = ''; groupId = ''; enabledOnly = false">清除筛选</el-button>
+          </div>
+          <div v-else class="registry-table-wrap" :aria-busy="listLoading">
+            <table class="registry-table">
+              <thead><tr>
+                <th scope="col"><el-checkbox :model-value="allSelected" :indeterminate="partialSelected" :disabled="listLoading || batchBusy || !mailboxes.length" aria-label="选择本页邮箱" @change="selectPage" /></th>
+                <th scope="col">邮箱与备注</th><th scope="col">分组</th><th scope="col">登记状态</th><th scope="col"><span class="sr-only">操作</span></th>
+              </tr></thead>
+              <tbody>
+                <tr v-for="mailbox in mailboxes" :key="mailbox.alias_id" :class="{ selected: selection.includes(mailbox.alias_id) }">
+                  <td><el-checkbox :model-value="selection.includes(mailbox.alias_id)" :disabled="batchBusy" :aria-label="`选择 ${mailbox.address}`" @change="(checked) => selectMailbox(mailbox.alias_id, checked)" /></td>
+                  <td><div class="pg-cell"><strong :title="mailbox.address" translate="no">{{ mailbox.address }}</strong><small v-if="mailbox.note" :title="mailbox.note">{{ mailbox.note }}</small><small v-if="!mailbox.enabled" class="registry-disabled">已停用</small></div></td>
+                  <td class="pg-ellipsis">{{ mailbox.group_name || "未分组" }}</td>
+                  <td><span :class="['pg-badge', registrationTone(mailbox.status)]">{{ registrationLabel(mailbox.status) }}</span><small v-if="mailbox.registration_count > 1" class="registry-muted registry-count">{{ mailbox.registration_count }} 条</small></td>
+                  <td><div class="registry-row-actions"><el-button link type="primary" size="small" :disabled="batchBusy" @click="openProfile(mailbox.alias_id)">资料</el-button><el-button v-if="!currentService.archived" link type="primary" size="small" :disabled="batchBusy" @click="openProfile(mailbox.alias_id, true)">登记</el-button></div></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="registry-mobile-records"><article v-for="mailbox in mailboxes" :key="mailbox.alias_id" class="registry-mobile-record"><el-checkbox :model-value="selection.includes(mailbox.alias_id)" :disabled="batchBusy" :aria-label="`选择 ${mailbox.address}`" @change="(checked) => selectMailbox(mailbox.alias_id, checked)"><strong>{{ mailbox.address }}</strong></el-checkbox><p v-if="mailbox.note">{{ mailbox.note }}</p><div><span :class="['pg-badge', registrationTone(mailbox.status)]">{{ registrationLabel(mailbox.status) }}</span><small v-if="!mailbox.enabled">已停用</small><el-button link type="primary" :disabled="batchBusy" @click="openProfile(mailbox.alias_id)">邮箱资料</el-button><el-button v-if="!currentService.archived" link type="primary" :disabled="batchBusy" @click="openProfile(mailbox.alias_id, true)">登记</el-button></div></article></div>
+          </div>
+          <footer v-if="pages > 1" class="registry-pager"><el-button size="small" :disabled="page <= 1 || listLoading || batchBusy" @click="changePage(-1)">上一页</el-button><span class="pg-num">{{ page }} / {{ pages }}</span><el-button size="small" :disabled="page >= pages || listLoading || batchBusy" @click="changePage(1)">下一页</el-button></footer>
         </template>
-        <div v-else class="registry-welcome"><h2>从一个服务开始</h2><p>创建服务后，可以登记已注册的邮箱，也可以找出尚未记录或确认未注册的邮箱。</p><el-button :disabled="servicesLoading" @click="beginService()">创建第一个服务</el-button></div>
+        <div v-else class="registry-empty"><p>还没有服务。创建服务后，可以登记已注册的邮箱，也能找出尚未记录的邮箱。</p><el-button size="small" type="primary" :disabled="servicesLoading" @click="beginService()">创建第一个服务</el-button></div>
       </section>
     </div>
+    <el-dialog v-model="editorOpen" :title="editingServiceId ? '编辑服务' : '新建服务'" width="min(480px, 94vw)" class="pg-dialog" :close-on-click-modal="!editorBusy" :show-close="!editorBusy" append-to-body>
+      <form id="service-editor-form" class="service-editor" @submit.prevent="saveService">
+        <label>服务名称<el-input v-model="editorName" :maxlength="100" placeholder="例如：GitHub" autocomplete="off" :disabled="editorBusy" /></label>
+        <label>域名（可选）<el-input v-model="editorDomain" :maxlength="253" placeholder="例如：github.com" autocomplete="off" :spellcheck="false" :disabled="editorBusy" /></label>
+        <label>服务说明（可选）<el-input v-model="editorNote" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" :maxlength="2000" :disabled="editorBusy" /></label>
+        <p v-if="editorError" role="alert" class="registry-error">{{ editorError }}</p>
+      </form>
+      <template #footer><el-button :disabled="editorBusy" @click="editorOpen = false">取消</el-button><el-button type="primary" native-type="submit" form="service-editor-form" :loading="editorBusy" :disabled="editorBusy">保存服务</el-button></template>
+    </el-dialog>
+    <el-dialog v-model="batchOpen" :title="currentService ? `批量登记 ${currentService.name}` : '批量登记'" width="min(480px, 94vw)" class="pg-dialog" :close-on-click-modal="!batchBusy" :show-close="!batchBusy" append-to-body>
+      <form id="registry-batch-form" class="registry-batch-form" @submit.prevent="saveBatch">
+        <p class="registry-muted">为已选的 {{ selection.length }} 个邮箱保存本地登记。若它们使用不同账号标识，请分别在邮箱资料中登记。</p>
+        <label>登记状态<el-select v-model="batchStatus" aria-label="批量登记状态" :disabled="batchBusy"><el-option v-for="state in registrationStates" :key="state.value" :value="state.value" :label="state.label" /></el-select></label>
+        <label>共同说明（可选）<el-input v-model="batchNote" :maxlength="2000" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" :disabled="batchBusy" /></label>
+        <p v-if="batchError" class="registry-error" role="alert">{{ batchError }}</p>
+      </form>
+      <template #footer><el-button :disabled="batchBusy" @click="batchOpen = false">取消</el-button><el-button native-type="submit" form="registry-batch-form" type="primary" :loading="batchBusy" :disabled="!selection.length || batchBusy">检查并保存</el-button></template>
+    </el-dialog>
     <MailboxProfileDrawer v-model="profileOpen" :alias-id="profileAliasId" :service-id="profileServiceId" @updated="profileUpdated" />
   </section>
 </template>

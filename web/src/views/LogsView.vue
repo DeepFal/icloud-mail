@@ -1,37 +1,15 @@
 <template>
   <section
-    class="page-stack virtual-list-page"
+    class="pg pg--fill virtual-list-page"
     aria-labelledby="logs-section-title"
   >
-    <SectionHeader level="h1"
-      id="logs-section-title"
-      title="运行日志"
-    >
-      <template #actions>
-        <div class="runtime-log-auto-refresh">
-          <span>自动刷新</span>
-          <el-switch
-            v-model="autoRefreshEnabled"
-            aria-label="每 5 秒自动刷新日志"
-          />
-        </div>
-        <el-tooltip content="刷新全部日志" placement="bottom">
-          <el-button
-            :icon="Refresh"
-            circle
-            :loading="loading"
-            aria-label="刷新全部日志"
-            @click="refreshLatestLogs"
-          />
-        </el-tooltip>
-      </template>
-    </SectionHeader>
-
-    <div class="runtime-log-filters" role="search" aria-label="筛选全部日志">
-      <label class="runtime-log-filter">
-        <span>级别</span>
+    <header class="pg-bar runtime-log-bar">
+      <h1 id="logs-section-title" class="pg-title">运行日志</h1>
+      <div class="runtime-log-filters" role="search" aria-label="筛选全部日志">
         <el-select
           v-model="filters.level"
+          class="runtime-log-filter--level"
+          placeholder="全部级别"
           aria-label="按日志级别筛选"
           @change="applyFilters"
         >
@@ -41,12 +19,9 @@
           <el-option label="信息" value="info" />
           <el-option label="调试" value="debug" />
         </el-select>
-      </label>
-
-      <label class="runtime-log-filter">
-        <span>主号</span>
         <el-select
           v-model="filters.accountId"
+          class="runtime-log-filter--account"
           filterable
           remote
           reserve-keyword
@@ -67,34 +42,31 @@
             :value="String(account.id)"
           />
         </el-select>
-      </label>
-
-      <label class="runtime-log-filter runtime-log-filter--query">
-        <span>关键词</span>
         <el-input
           v-model="keywordDraft"
+          class="runtime-log-filter--query"
           clearable
           maxlength="200"
+          :prefix-icon="Search"
           aria-label="搜索日志关键词"
-          placeholder="消息、来源或请求编号"
+          placeholder="消息、来源或请求编号…"
           @keyup.enter="applyFilters"
           @clear="applyFilters"
         />
-      </label>
-
-      <div class="runtime-log-filter-actions">
-        <el-button type="primary" :icon="Search" @click="applyFilters">
-          查询
-        </el-button>
-        <el-button
-          :icon="RefreshLeft"
-          :disabled="!hasActiveFilters"
-          @click="resetFilters"
-        >
-          重置
-        </el-button>
+        <el-button v-if="hasActiveFilters" :icon="RefreshLeft" @click="resetFilters">重置</el-button>
       </div>
-    </div>
+      <div class="pg-bar__end">
+        <label class="runtime-log-auto-refresh">
+          <el-switch
+            v-model="autoRefreshEnabled"
+            size="small"
+            aria-label="每 5 秒自动刷新日志"
+          />
+          <span>自动刷新</span>
+        </label>
+        <el-button :icon="Refresh" :loading="loading" @click="refreshLatestLogs">刷新</el-button>
+      </div>
+    </header>
 
     <RequestAlert
       v-if="accountsLoadError"
@@ -142,50 +114,54 @@
           :data="logs"
           row-key="id"
           fill-height
-          :row-height="68"
+          :row-height="32"
+          :header-height="32"
           :loading="loading"
         >
           <template #cell="{ column, row }">
             <template v-if="column.key === 'time'">
-              {{ formatTime(row.time, { seconds: true }) }}
+              <span class="pg-num pg-muted">{{ formatTime(row.time, { seconds: true }) }}</span>
             </template>
             <template v-else-if="column.key === 'level'">
-              <el-tag
-                class="runtime-log-level"
-                :type="runtimeLogLevelMeta(row.level).type"
-                effect="plain"
-                size="small"
-              >
-                {{ runtimeLogLevelMeta(row.level).label }}
-              </el-tag>
+              <span class="pg-dot" :class="levelDotClass(row.level)">{{ runtimeLogLevelMeta(row.level).label }}</span>
             </template>
             <template v-else-if="column.key === 'source'">
               <code class="runtime-log-source">{{ row.source || "system" }}</code>
             </template>
             <template v-else-if="column.key === 'message'">
-              <p class="runtime-log-message">{{ row.message || "-" }}</p>
+              <button
+                type="button"
+                class="runtime-log-message"
+                :title="row.message || undefined"
+                :aria-label="`查看日志 ${row.id} 的详情`"
+                @click="openLogDetail(row)"
+              >{{ row.message || "—" }}</button>
             </template>
             <template v-else-if="column.key === 'httpMeta'">
-              <div v-if="row.attributes?.method" class="primary-stack">
-                <span>{{ row.attributes.status }} / {{ row.attributes.duration_ms || 0 }} ms</span>
-                <small v-if="row.attributes.suppressed_count">已合并 {{ row.attributes.suppressed_count }} 次重复读取</small>
-              </div><span v-else>-</span>
+              <span
+                v-if="row.attributes?.method"
+                class="pg-num pg-ellipsis"
+                :title="row.attributes.suppressed_count ? `已合并 ${row.attributes.suppressed_count} 次重复读取` : undefined"
+              >{{ row.attributes.status }} / {{ row.attributes.duration_ms || 0 }}&nbsp;ms<template v-if="row.attributes.suppressed_count"> ×{{ row.attributes.suppressed_count }}</template></span>
+              <span v-else class="pg-muted">—</span>
             </template>
             <template v-else-if="column.key === 'accountId'">
-              {{ accountLabel(row.accountId) }}
+              <span class="pg-ellipsis pg-muted" :title="accountLabel(row.accountId)">{{ accountLabel(row.accountId) }}</span>
             </template>
             <template v-else-if="column.key === 'requestId'">
               <code class="runtime-log-request-id">{{ row.requestId || "-" }}</code>
             </template>
             <template v-else-if="column.key === 'actions'">
-              <el-tooltip content="查看日志详情" placement="top">
+              <div class="pg-row-actions">
                 <el-button
+                  class="pg-icon-btn"
                   :icon="View"
-                  circle
-                  :aria-label="`查看日志 ${row.id} 的详情`"
+                  title="查看详情"
+                  aria-label="查看详情"
+                  tabindex="-1"
                   @click="openLogDetail(row)"
                 />
-              </el-tooltip>
+              </div>
             </template>
           </template>
         </VirtualDataTable>
@@ -198,14 +174,7 @@
               <strong class="runtime-log-source">{{ log.source || "system" }}</strong>
               <small>{{ formatTime(log.time, { seconds: true }) }}</small>
             </div>
-            <el-tag
-              class="runtime-log-level"
-              :type="runtimeLogLevelMeta(log.level).type"
-              effect="plain"
-              size="small"
-            >
-              {{ runtimeLogLevelMeta(log.level).label }}
-            </el-tag>
+            <span class="pg-dot" :class="levelDotClass(log.level)">{{ runtimeLogLevelMeta(log.level).label }}</span>
           </header>
           <p class="runtime-log-mobile-message">{{ log.message || "-" }}</p>
           <dl class="mobile-kv-list">
@@ -277,7 +246,7 @@ import EmptyState from "../components/EmptyState.vue";
 import ListPagination from "../components/ListPagination.vue";
 import RequestAlert from "../components/RequestAlert.vue";
 import RuntimeLogDetailDialog from "../components/RuntimeLogDetailDialog.vue";
-import SectionHeader from "../components/SectionHeader.vue";
+import "../styles/pages.css";
 import VirtualDataTable from "../components/VirtualDataTable.vue";
 import { createLatestRequestGate } from "../utils/asyncState.js";
 import { formatTime } from "../utils/format.js";
@@ -294,13 +263,18 @@ import {
 
 const ACCOUNT_OPTION_LIMIT = 50;
 const runtimeLogColumns = [
-  { key: "time", title: "时间", width: 178, flexGrow: 1 },
-  { key: "level", title: "级别", width: 92 },
-  { key: "message", title: "动作 / 运行消息", width: 340, flexGrow: 3 },
-  { key: "httpMeta", title: "状态 / 耗时", width: 155 },
-  { key: "accountId", title: "主号", width: 170, flexGrow: 1 },
-  { key: "actions", title: "详情", width: 70, align: "right", fixed: "right" },
+  { key: "time", title: "时间", width: 150 },
+  { key: "level", title: "级别", width: 72 },
+  { key: "message", title: "消息", width: 340, flexGrow: 4 },
+  { key: "httpMeta", title: "状态 / 耗时", width: 130 },
+  { key: "accountId", title: "主号", width: 180, flexGrow: 1, hideBelow: 1000 },
+  { key: "actions", title: "", width: 44, align: "right" },
 ];
+
+function levelDotClass(level) {
+  const type = runtimeLogLevelMeta(level).type;
+  return type === "danger" || type === "warning" ? `is-${type}` : "";
+}
 const selectableLevels = new Set(["debug", "info", "warn", "error"]);
 const route = useRoute();
 const router = useRouter();
@@ -716,25 +690,20 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.runtime-log-bar { flex-wrap: nowrap; }
+.runtime-log-filters { display: flex; flex: 1 1 auto; align-items: center; gap: 8px; min-width: 0; }
+.runtime-log-filter--level { flex: 0 0 104px; width: 104px; }
+.runtime-log-filter--account { flex: 0 1 200px; width: 200px; min-width: 120px; }
+.runtime-log-filter--query { flex: 0 1 260px; width: 260px; min-width: 140px; }
+
 .runtime-log-auto-refresh {
   display: inline-flex;
-  min-height: 32px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 12px;
   white-space: nowrap;
-}
-
-.runtime-log-filters { display: grid; grid-template-columns: minmax(100px, .5fr) minmax(150px, .8fr) minmax(180px, 1.5fr) auto; align-items: center; gap: 8px; }
-.runtime-log-filter { display: block; min-width: 0; }
-.runtime-log-filter > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.runtime-log-filter-actions { display: flex; align-items: center; gap: 6px; }
-.runtime-log-filter-actions .el-button { margin-left: 0; }
-
-.runtime-log-level {
-  min-width: 48px;
-  justify-content: center;
+  cursor: pointer;
 }
 
 .runtime-log-source,
@@ -743,17 +712,35 @@ onBeforeUnmount(() => {
 }
 
 .runtime-log-message {
-  display: -webkit-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
   overflow: hidden;
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: 20px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.runtime-log-message:hover {
+  color: var(--primary);
+}
+
+.runtime-log-message:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .runtime-log-mobile-message {
   margin: 0;
-  padding: 14px;
+  padding: 12px;
   color: var(--text);
   line-height: 1.55;
   overflow-wrap: anywhere;
@@ -761,34 +748,15 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--border);
 }
 
-@media (max-width: 1000px) {
-  .runtime-log-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .runtime-log-filter--query {
-    grid-column: 1 / -1;
-  }
-
-  .runtime-log-filter-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-end;
-  }
+@media (max-width: 1100px) {
+  .runtime-log-bar { flex-wrap: wrap; }
+  .runtime-log-filters { order: 10; flex-basis: 100%; }
 }
 
 @media (max-width: 720px) {
-  .runtime-log-filters {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .runtime-log-filter--query,
-  .runtime-log-filter-actions {
-    grid-column: auto;
-  }
-
-  .runtime-log-filter-actions > .el-button {
-    min-width: 0;
-    flex: 1 1 0;
-  }
+  .runtime-log-filters { flex-wrap: wrap; }
+  .runtime-log-filter--level,
+  .runtime-log-filter--account,
+  .runtime-log-filter--query { flex: 1 1 100%; width: 100%; }
 }
 </style>

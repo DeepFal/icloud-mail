@@ -1,78 +1,83 @@
 <template>
-  <section class="content-narrow page-stack" aria-labelledby="security-form-title">
-    <SectionHeader level="h1"
-      id="security-form-title"
-      title="修改管理员密码"
-    />
+  <section class="pg" aria-labelledby="security-form-title">
+    <header class="pg-bar">
+      <h1 id="security-form-title" class="pg-title">安全设置</h1>
+    </header>
 
     <el-form
       ref="formRef"
-      class="form-panel security-form"
+      class="pg-form pg-form--aligned security-form"
       :model="form"
       :rules="rules"
-      label-position="top"
+      label-position="left"
+      label-width="140px"
       :disabled="submitting"
       status-icon
       @submit.prevent="submit"
     >
-      <RequestAlert
-        v-if="submitError"
-        :error="submitError"
-        closable
-        @close="submitError = null"
-      />
-
-      <el-form-item label="当前密码" prop="currentPassword">
-        <el-input
-          v-model="form.currentPassword"
-          type="password"
-          autocomplete="current-password"
-          show-password
+      <fieldset class="pg-fieldset">
+        <legend>管理员密码</legend>
+        <RequestAlert
+          v-if="submitError"
+          class="security-form__alert"
+          :error="submitError"
+          closable
+          @close="submitError = null"
         />
-      </el-form-item>
 
-      <el-form-item label="新密码" prop="newPassword">
-        <el-input
-          v-model="form.newPassword"
-          type="password"
-          autocomplete="new-password"
-          show-password
-        />
-        <p class="field-help">长度为 12 到 72 字节，当前 {{ newPasswordBytes }} 字节。</p>
-      </el-form-item>
+        <el-form-item label="当前密码" prop="currentPassword">
+          <el-input
+            v-model="form.currentPassword"
+            type="password"
+            name="current-password"
+            autocomplete="current-password"
+            show-password
+          />
+        </el-form-item>
 
-      <el-form-item label="确认新密码" prop="confirmPassword">
-        <el-input
-          v-model="form.confirmPassword"
-          type="password"
-          autocomplete="new-password"
-          show-password
-        />
-      </el-form-item>
+        <el-form-item label="新密码" prop="newPassword">
+          <el-input
+            v-model="form.newPassword"
+            type="password"
+            name="new-password"
+            autocomplete="new-password"
+            show-password
+          />
+          <p class="pg-help">12–72 字节，当前 {{ newPasswordBytes }} 字节。</p>
+        </el-form-item>
 
-      <p class="field-help">保存后，所有管理员会话将退出。</p>
-      <div class="form-actions">
-        <el-button
-          native-type="submit"
-          type="primary"
-          :icon="Lock"
-          :loading="submitting"
-        >
-          更新密码
-        </el-button>
-      </div>
+        <el-form-item label="确认新密码" prop="confirmPassword">
+          <el-input
+            v-model="form.confirmPassword"
+            type="password"
+            name="confirm-password"
+            autocomplete="new-password"
+            show-password
+          />
+        </el-form-item>
+
+        <el-form-item class="security-form__submit">
+          <el-button
+            native-type="submit"
+            type="primary"
+            :loading="submitting"
+          >
+            {{ submitting ? "更新中…" : "更新密码" }}
+          </el-button>
+          <p class="pg-help">更新后所有管理员会话都会退出，需要重新登录。</p>
+        </el-form-item>
+      </fieldset>
     </el-form>
   </section>
 </template>
 
 <script setup>
-import { Lock } from "@element-plus/icons-vue";
 import { computed, nextTick, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import { updatePassword } from "../api/admin.js";
 import RequestAlert from "../components/RequestAlert.vue";
-import SectionHeader from "../components/SectionHeader.vue";
+import "../styles/pages.css";
 import { useAuth } from "../stores/auth.js";
 import { createActionLock } from "../utils/asyncState.js";
 import { utf8Length } from "../utils/format.js";
@@ -160,3 +165,13 @@ async function submit() {
   }
 }
 </script>
+
+<style scoped>
+.security-form__alert {
+  margin-bottom: 12px;
+}
+
+.security-form__submit {
+  margin-top: 8px;
+}
+</style>

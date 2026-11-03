@@ -1,31 +1,20 @@
 <template>
   <section
-    class="page-stack virtual-list-page"
+    class="pg pg--fill virtual-list-page"
     aria-labelledby="accounts-section-title"
   >
-    <SectionHeader level="h1"
-      id="accounts-section-title"
-      title="邮箱主号"
-    >
-      <template #actions>
-        <el-radio-group :model-value="attentionOnly ? 'attention' : 'all'" size="default" aria-label="主号筛选" @change="setAttentionFilter">
-          <el-radio-button value="all">全部</el-radio-button>
-          <el-radio-button value="attention">需处理</el-radio-button>
-        </el-radio-group>
-        <el-tooltip content="刷新主号列表" placement="bottom">
-          <el-button
-            :icon="Refresh"
-            circle
-            :loading="loading"
-            aria-label="刷新主号列表"
-            @click="loadAccounts"
-          />
-        </el-tooltip>
-        <el-button type="primary" :icon="Plus" @click="openNewAccount">
-          添加主号
-        </el-button>
-      </template>
-    </SectionHeader>
+    <header class="pg-bar">
+      <h1 id="accounts-section-title" class="pg-title">主号</h1>
+      <span v-if="attentionOnly && !loading" class="pg-count">{{ total }}</span>
+      <el-radio-group :model-value="attentionOnly ? 'attention' : 'all'" aria-label="主号筛选" @change="setAttentionFilter">
+        <el-radio-button value="all">全部</el-radio-button>
+        <el-radio-button value="attention">需处理</el-radio-button>
+      </el-radio-group>
+      <div class="pg-bar__end">
+        <el-button :icon="Refresh" :loading="loading" @click="loadAccounts">刷新</el-button>
+        <el-button type="primary" :icon="Plus" @click="openNewAccount">添加主号</el-button>
+      </div>
+    </header>
 
     <div v-if="loading && accounts.length === 0" class="data-panel loading-panel">
       <el-skeleton :rows="5" animated role="status" aria-label="正在加载主号列表" />
@@ -65,7 +54,7 @@
         :class="{
           'desktop-data-table--force': pageSize > 100 || pageSize === ALL_PAGE_SIZE,
         }"
-        :style="accounts.length <= 10 ? { flex: '0 0 auto', height: `${accounts.length * 56 + 50}px`, minHeight: '0' } : undefined"
+        :style="accounts.length <= 10 ? { flex: '0 0 auto', height: `${accounts.length * ROW_HEIGHT + ROW_HEIGHT + 2}px`, minHeight: '0' } : undefined"
         :aria-busy="loading"
       >
         <VirtualDataTable
@@ -73,13 +62,15 @@
           :data="accounts"
           row-key="id"
           fill-height
+          :row-height="ROW_HEIGHT"
+          :header-height="ROW_HEIGHT"
           :loading="loading"
         >
           <template #cell="{ column, row }">
             <template v-if="column.key === 'account'">
-              <div class="primary-stack">
-                <strong>{{ row.mailboxType === "custom" ? `@${row.emailSuffix}` : row.email }}</strong>
-                <small>{{ row.name || "未填写备注" }}</small>
+              <div class="pg-cell">
+                <RouterLink class="account-link" :to="{ name: 'account-detail', params: { id: row.id } }" translate="no">{{ row.mailboxType === "custom" ? `@${row.emailSuffix}` : row.email }}</RouterLink>
+                <small v-if="row.name" :title="row.name">{{ row.name }}</small>
               </div>
             </template>
             <template v-else-if="column.key === 'status'">
@@ -92,20 +83,13 @@
               <AttentionReasons :account="row" />
             </template>
             <template v-else-if="column.key === 'aliasCount'">
-              {{ row.aliasCount }}
+              <span class="pg-num">{{ row.aliasCount }}</span>
             </template>
             <template v-else-if="column.key === 'lastSyncedAt'">
-              {{ formatTime(row.lastSyncedAt, { seconds: true }) }}
+              <span class="pg-num pg-muted">{{ formatTime(row.lastSyncedAt, { seconds: true }) }}</span>
             </template>
             <template v-else-if="column.key === 'actions'">
-              <el-button
-                link
-                type="primary"
-                :icon="Setting"
-                @click="openAccount(row.id)"
-              >
-                管理
-              </el-button>
+              <el-button link type="primary" size="small" @click="openAccount(row.id)">管理</el-button>
             </template>
           </template>
         </VirtualDataTable>
@@ -163,18 +147,18 @@
 <script setup>
 import { Plus, Refresh, Setting } from "@element-plus/icons-vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import { getAccountPage, getAllAccounts } from "../api/admin.js";
 import EmptyState from "../components/EmptyState.vue";
 import ListPagination from "../components/ListPagination.vue";
 import RequestAlert from "../components/RequestAlert.vue";
-import SectionHeader from "../components/SectionHeader.vue";
 import SyncStatus from "../components/SyncStatus.vue";
 import VirtualDataTable from "../components/VirtualDataTable.vue";
 import AppleConnectionTags from "../components/AppleConnectionTags.vue";
 import AttentionReasons from "../components/AttentionReasons.vue";
 import { formatTime } from "../utils/format.js";
+import "../styles/pages.css";
 import { accountAttentionReasons, accountNeedsAttention } from "../utils/workspaceConnection.js";
 import { createLatestRequestGate } from "../utils/asyncState.js";
 import { createLiveRefresh } from "../utils/liveRefresh.js";
@@ -189,14 +173,15 @@ const route = useRoute();
 const attentionOnly = computed(() => route.query.attention === "1");
 const attentionReasons = accountAttentionReasons;
 const pageSize = ref(DEFAULT_PAGE_SIZE);
+const ROW_HEIGHT = 32;
 const accountColumns = [
-  { key: "account", title: "主号", width: 250, flexGrow: 3 },
-  { key: "status", title: "状态", width: 140, flexGrow: 1 },
+  { key: "account", title: "主号", width: 260, flexGrow: 3 },
+  { key: "status", title: "收件", width: 150 },
   { key: "apple", title: "Apple 连接", width: 220, flexGrow: 2 },
-  { key: "attention", title: "需处理", width: 150, flexGrow: 1 },
-  { key: "aliasCount", title: "隐私地址", width: 112, align: "center" },
-  { key: "lastSyncedAt", title: "最近同步", width: 180, flexGrow: 1 },
-  { key: "actions", title: "操作", width: 118, align: "right", fixed: "right" },
+  { key: "attention", title: "需处理", width: 160, flexGrow: 1, hideBelow: 1180 },
+  { key: "aliasCount", title: "地址数", width: 72, align: "right" },
+  { key: "lastSyncedAt", title: "最近同步", width: 150 },
+  { key: "actions", title: "", width: 72, align: "right" },
 ];
 const accounts = ref([]);
 const currentPage = ref(1);
@@ -332,3 +317,25 @@ onBeforeUnmount(() => {
   liveRefresh.stop();
 });
 </script>
+
+<style scoped>
+.account-link {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.account-link:hover {
+  color: var(--primary);
+}
+
+.account-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+</style>

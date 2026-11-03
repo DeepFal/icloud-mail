@@ -1,24 +1,14 @@
 <template>
   <section
-    class="page-stack virtual-list-page"
+    class="pg pg--fill virtual-list-page"
     aria-labelledby="audit-section-title"
   >
-    <SectionHeader level="h1"
-      id="audit-section-title"
-      title="操作记录"
-    >
-      <template #actions>
-        <el-tooltip content="刷新操作记录" placement="bottom">
-          <el-button
-            :icon="Refresh"
-            circle
-            :loading="loading"
-            aria-label="刷新操作记录"
-            @click="loadAuditLogs"
-          />
-        </el-tooltip>
-      </template>
-    </SectionHeader>
+    <header class="pg-bar">
+      <h1 id="audit-section-title" class="pg-title">操作记录</h1>
+      <div class="pg-bar__end">
+        <el-button :icon="Refresh" :loading="loading" @click="loadAuditLogs">刷新</el-button>
+      </div>
+    </header>
 
     <div v-if="loading && logs.length === 0" class="data-panel loading-panel">
       <el-skeleton :rows="7" animated role="status" aria-live="polite" aria-busy="true" aria-label="正在加载审计记录" />
@@ -55,33 +45,28 @@
           :data="logs"
           row-key="id"
           fill-height
+          :row-height="32"
+          :header-height="32"
           :loading="loading"
         >
           <template #cell="{ column, row }">
             <template v-if="column.key === 'createdAt'">
-              {{ formatTime(row.createdAt, { seconds: true }) }}
+              <span class="pg-num">{{ formatTime(row.createdAt, { seconds: true }) }}</span>
             </template>
             <template v-else-if="column.key === 'username'">
               {{ row.username || "系统" }}
             </template>
             <template v-else-if="column.key === 'action'">
-              <strong class="audit-action" :title="row.action">{{ actionLabel(row.action) }}</strong>
+              <span class="audit-action pg-ellipsis" :title="row.action">{{ actionLabel(row.action) }}</span>
             </template>
             <template v-else-if="column.key === 'resource'">
-              {{ resourceLabel(row.resourceType, row.resourceId) }}
+              <span class="pg-ellipsis">{{ resourceLabel(row.resourceType, row.resourceId) }}</span>
             </template>
             <template v-else-if="column.key === 'result'">
-              <el-tag
-                class="audit-result"
-                :type="resultMeta(row.result).type"
-                effect="plain"
-                size="small"
-              >
-                {{ resultMeta(row.result).label }}
-              </el-tag>
+              <span class="pg-dot" :class="`is-${resultMeta(row.result).type}`">{{ resultMeta(row.result).label }}</span>
             </template>
             <template v-else-if="column.key === 'requestId'">
-              <code class="audit-request-id">{{ row.requestId || "-" }}</code>
+              <code class="audit-request-id pg-ellipsis" :title="row.requestId || undefined" translate="no">{{ row.requestId || "—" }}</code>
             </template>
           </template>
         </VirtualDataTable>
@@ -94,14 +79,7 @@
               <strong :title="log.action">{{ actionLabel(log.action) }}</strong>
               <small>{{ formatTime(log.createdAt, { seconds: true }) }}</small>
             </div>
-            <el-tag
-              class="audit-result"
-              :type="resultMeta(log.result).type"
-              effect="plain"
-              size="small"
-            >
-              {{ resultMeta(log.result).label }}
-            </el-tag>
+            <span class="pg-dot" :class="`is-${resultMeta(log.result).type}`">{{ resultMeta(log.result).label }}</span>
           </header>
           <dl class="mobile-kv-list">
             <div>
@@ -114,7 +92,7 @@
             </div>
             <div>
               <dt>请求编号</dt>
-              <dd><code class="audit-request-id">{{ log.requestId || "-" }}</code></dd>
+              <dd><code class="audit-request-id" translate="no">{{ log.requestId || "—" }}</code></dd>
             </div>
           </dl>
         </article>
@@ -141,8 +119,8 @@ import { getAllAuditLogs, getAuditLogs } from "../api/admin.js";
 import EmptyState from "../components/EmptyState.vue";
 import ListPagination from "../components/ListPagination.vue";
 import RequestAlert from "../components/RequestAlert.vue";
-import SectionHeader from "../components/SectionHeader.vue";
 import VirtualDataTable from "../components/VirtualDataTable.vue";
+import "../styles/pages.css";
 import { createLatestRequestGate } from "../utils/asyncState.js";
 import { formatTime } from "../utils/format.js";
 import { auditActionLabel } from "../utils/audit.js";
@@ -292,16 +270,16 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .audit-action {
-  color: var(--el-text-color-primary);
-  font-weight: 600;
-}
-
-.audit-result {
-  min-width: 48px;
-  justify-content: center;
+  color: var(--text);
+  font-weight: 500;
 }
 
 .audit-request-id {
-  overflow-wrap: anywhere;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 </style>

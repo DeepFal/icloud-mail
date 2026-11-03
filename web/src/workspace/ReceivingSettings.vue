@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { ElMessage, ElMessageBox, ElSwitch } from "element-plus";
 import { apiRequest } from "../api/client.js";
 import { useAuth } from "../stores/auth.js";
+import "../styles/pages.css";
 
 const props = defineProps({ accountId: { type: [String, Number], required: true } });
 const auth = useAuth();
@@ -11,6 +12,7 @@ const job = ref(null), backgroundEnabled = ref(false), historyDays = ref(7), fet
 let generation = 0, controller, timer, disposed = false, jobLoading = false;
 const statuses = { queued: "排队中", running: "补取中", waiting: "等待重试", paused: "已暂停", completed: "已完成", failed: "需要处理", cancelled: "已取消" };
 const active = computed(() => job.value && ["queued", "running", "waiting", "paused"].includes(job.value.status));
+const jobTone = computed(() => ({ running: "is-primary", queued: "is-warning", waiting: "is-warning", paused: "is-warning", completed: "is-success", failed: "is-danger" })[job.value?.status] || "");
 const path = () => `/accounts/${encodeURIComponent(props.accountId)}`;
 function date(value) { if (!value) return "—"; const at = new Date(value); return Number.isFinite(at.getTime()) ? new Intl.DateTimeFormat("zh-CN", { dateStyle: "short", timeStyle: "short" }).format(at) : "时间未知"; }
 function stopPoll() { clearTimeout(timer); }
@@ -56,13 +58,65 @@ onBeforeUnmount(() => { disposed = true; generation++; controller?.abort(); stop
 
 <template>
   <section class="receiving-settings" aria-label="后台收件与历史补取">
-    <p v-if="error" class="error" role="alert">{{ error }} <button @click="load">重新读取</button></p>
-    <div class="setting-card"><div class="card-head"><div><h3>后台常驻收件</h3></div><ElSwitch v-model="backgroundEnabled" aria-label="后台常驻收件" :disabled="loading || saving" /></div><div class="control-row"><label>默认补取范围<select v-model.number="historyDays" :disabled="loading || saving"><option v-for="days in [1, 7, 30, 90, 365, 3650]" :key="days" :value="days">最近 {{ days }} 天</option></select></label><button class="btn btn-primary" :disabled="loading || saving" @click="save">{{ saving ? '保存中…' : '保存设置' }}</button></div></div>
-    <div class="setting-card"><h3>历史邮件补取</h3><div class="control-row"><select v-model.number="fetchDays" aria-label="历史补取范围" :disabled="loading || jobBusy"><option v-for="days in [1, 7, 30, 90, 365, 3650]" :key="days" :value="days">最近 {{ days }} 天</option></select><button class="btn btn-primary" :disabled="loading || jobBusy || active" @click="start">开始补取</button></div>
-      <div v-if="job" class="history-job"><div class="job-line"><strong>{{ statuses[job.status] || job.status }}</strong><span>{{ date(job.since) }} — {{ date(job.until) }}</span></div><p>已检查 {{ job.scanned_count }} 封候选邮件，新增归档 {{ job.archived_count }} 封。</p><p v-if="job.initialized" class="job-position">扫描位置 UID {{ job.last_uid }} / {{ job.target_uid }}</p><p v-if="job.last_error" class="error">{{ job.last_error }}</p><p v-if="job.next_run_at">下次尝试：{{ date(job.next_run_at) }}</p><div class="job-actions"><button v-if="['running', 'queued', 'waiting'].includes(job.status)" class="btn" :disabled="jobBusy" @click="act('pause')">暂停</button><button v-if="['paused', 'failed'].includes(job.status)" class="btn btn-primary" :disabled="jobBusy" @click="act('resume')">恢复</button><button v-if="active || job.status === 'failed'" class="btn" :disabled="jobBusy" @click="act('cancel')">取消任务</button></div></div>
+    <p v-if="error" class="receiving-settings__error" role="alert">{{ error }} <el-button link type="primary" @click="load">重新读取</el-button></p>
+    <div class="setting-row">
+      <span id="receiving-background-label" class="setting-row__label">后台常驻收件</span>
+      <div class="setting-row__control">
+        <ElSwitch v-model="backgroundEnabled" aria-labelledby="receiving-background-label" :disabled="loading || saving" />
+        <span class="setting-row__sub">默认补取范围</span>
+        <el-select v-model="historyDays" class="setting-row__days" aria-label="默认补取范围" :disabled="loading || saving">
+          <el-option v-for="days in [1, 7, 30, 90, 365, 3650]" :key="days" :label="`最近 ${days} 天`" :value="days" />
+        </el-select>
+        <el-button :loading="saving" :disabled="loading" @click="save">{{ saving ? "保存中…" : "保存设置" }}</el-button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-row__label">历史邮件补取</span>
+      <div class="setting-row__control">
+        <el-select v-model="fetchDays" class="setting-row__days" aria-label="历史补取范围" :disabled="loading || jobBusy">
+          <el-option v-for="days in [1, 7, 30, 90, 365, 3650]" :key="days" :label="`最近 ${days} 天`" :value="days" />
+        </el-select>
+        <el-button :disabled="loading || jobBusy || active" @click="start">开始补取</el-button>
+      </div>
+    </div>
+    <div v-if="job" class="setting-row history-job">
+      <span class="setting-row__label">补取任务</span>
+      <div class="history-job__body">
+        <div class="history-job__line">
+          <span class="pg-dot" :class="jobTone">{{ statuses[job.status] || job.status }}</span>
+          <span class="pg-num">{{ date(job.since) }} – {{ date(job.until) }}</span>
+          <span class="pg-num">已检查 {{ job.scanned_count }}</span>
+          <span class="pg-num">新增归档 {{ job.archived_count }}</span>
+          <span v-if="job.initialized" class="pg-num pg-muted">UID {{ job.last_uid }} / {{ job.target_uid }}</span>
+          <span v-if="job.next_run_at" class="pg-num pg-muted">下次尝试 {{ date(job.next_run_at) }}</span>
+          <span class="history-job__actions">
+            <el-button v-if="['running', 'queued', 'waiting'].includes(job.status)" size="small" :disabled="jobBusy" @click="act('pause')">暂停</el-button>
+            <el-button v-if="['paused', 'failed'].includes(job.status)" size="small" type="primary" :disabled="jobBusy" @click="act('resume')">恢复</el-button>
+            <el-button v-if="active || job.status === 'failed'" size="small" :disabled="jobBusy" @click="act('cancel')">取消任务</el-button>
+          </span>
+        </div>
+        <p v-if="job.last_error" class="receiving-settings__error">{{ job.last_error }}</p>
+      </div>
     </div>
   </section>
 </template>
+
 <style scoped>
-.receiving-settings>.error{grid-column:1/-1}.receiving-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;font-size:12px;margin:0;color:var(--text)}.setting-card{padding:16px;border:1px solid var(--border);border-radius:9px;background:var(--surface)}h3{font-size:14px;font-weight:550;margin:0}p{margin:8px 0 15px;color:var(--text-secondary);line-height:1.8}.card-head,.control-row,.job-line,.job-actions{display:flex;align-items:center;justify-content:space-between;gap:16px}.control-row{margin-top:15px}label{display:flex;align-items:center;gap:12px;color:var(--text-secondary)}select{border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--surface);color:var(--text);font:inherit}.history-job{margin-top:18px;border-top:1px solid var(--border);padding-top:16px}.job-line span,.job-position{font-size:10px;color:var(--text-secondary)}.job-actions{justify-content:flex-start}.error{color:var(--danger);overflow-wrap:anywhere}.error button{color:var(--primary);background:transparent;border:0;cursor:pointer}@media(max-width:900px){.receiving-settings{grid-template-columns:1fr}}@media(max-width:600px){.card-head{align-items:flex-start}.control-row,.job-line{flex-wrap:wrap}label{flex-wrap:wrap}.setting-card{padding:16px}}
+.receiving-settings { display: flex; flex-direction: column; color: var(--text); font-size: 13px; }
+.receiving-settings__error { margin: 0 0 8px; color: var(--danger); font-size: 12px; overflow-wrap: anywhere; }
+.setting-row { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: center; column-gap: 12px; min-height: 36px; padding: 4px 0; }
+.setting-row + .setting-row { border-top: 1px solid var(--border); }
+.setting-row__label { color: var(--text-secondary); }
+.setting-row__control { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.setting-row__sub { margin-left: 12px; color: var(--text-secondary); }
+.setting-row__days { width: 128px; }
+.history-job { align-items: start; }
+.history-job .setting-row__label { line-height: 28px; }
+.history-job__line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; min-height: 28px; }
+.history-job__actions { display: inline-flex; gap: 4px; }
+.history-job__body .receiving-settings__error { margin: 4px 0 0; }
+@media (max-width: 600px) {
+  .setting-row { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+  .setting-row__sub { margin-left: 0; }
+}
 </style>
