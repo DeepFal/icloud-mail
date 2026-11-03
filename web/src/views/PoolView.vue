@@ -1,28 +1,29 @@
 <template>
   <el-config-provider :locale="zhCn">
-    <section class="page-stack pool-page">
-      <SectionHeader level="h1"
-        title="邮箱池"
-      >
-        <template #actions
-          ><el-button :loading="loading" @click="refresh(true)"
-            >刷新</el-button
-          ></template
-        >
-      </SectionHeader>
+    <section class="pg pg--fill pool-page" aria-labelledby="pool-title">
+      <header class="pg-bar">
+        <h1 id="pool-title" class="pg-title">邮箱池</h1>
+        <el-radio-group :model-value="tab" aria-label="邮箱池视图" @change="setTab">
+          <el-radio-button v-for="item in POOL_TABS" :key="item.name" :value="item.name">{{ item.label }}</el-radio-button>
+        </el-radio-group>
+        <div class="pg-bar__end">
+          <PoolReleaseReviews @change="refresh(true)" />
+          <el-button :loading="loading" @click="refresh(true)">刷新</el-button>
+        </div>
+      </header>
       <RequestAlert
         v-if="error"
         :error="error"
         closable
         @close="error = null"
       />
-      <PoolReleaseReviews @change="refresh(true)" />
-      <el-tabs v-model="tab" @tab-change="refreshTab">
-        <el-tab-pane label="邮箱库存" name="members">
+        <div v-show="tab === 'members'" class="pool-pane" role="region" aria-label="邮箱库存">
           <div class="pool-toolbar">
             <el-select
               v-model="memberState"
+              class="pool-toolbar__state"
               placeholder="全部状态"
+              aria-label="按库存状态筛选"
               clearable
               @change="
                 memberPage = 1;
@@ -38,21 +39,22 @@
             </el-select>
             <el-input
               v-model="search"
-              placeholder="搜索邮箱"
+              class="pool-toolbar__search"
+              placeholder="搜索邮箱…"
+              aria-label="搜索库存邮箱"
               clearable
+              :spellcheck="false"
               @keyup.enter="
                 memberPage = 1;
                 loadMembers();
               "
-            />
-            <el-button
-              @click="
+              @clear="
                 memberPage = 1;
                 loadMembers();
               "
-              >搜索</el-button
-            >
-            <el-button type="primary" @click="openEnroll"
+            />
+            <span class="pool-toolbar__count">{{ members.total }} 个</span>
+            <el-button class="pool-toolbar__end" type="primary" @click="openEnroll"
               >加入已有邮箱</el-button
             >
           </div>
@@ -60,16 +62,18 @@
             :data="members.items"
             v-loading="loading"
             class="pool-table"
+            size="small"
+            height="100%"
             empty-text="暂无库存。添加主号后，可加入已有邮箱或开启新邮箱自动入池。"
           >
             <el-table-column prop="address" label="邮箱" min-width="245" />
             <el-table-column prop="group_name" label="分组" min-width="110" />
             <el-table-column label="状态" width="135"
               ><template #default="{ row }"
-                ><el-tag :type="stateType(row.state)">{{
+                ><span class="pg-dot" :class="stateTone(row.state)">{{
                   stateName(row.state)
-                }}</el-tag
-                ><small v-if="!row.enabled"> 主号/邮箱停用</small></template
+                }}</span
+                ><small v-if="!row.enabled" class="pool-muted"> 主号/邮箱停用</small></template
               ></el-table-column
             >
             <el-table-column label="更新时间" min-width="175"
@@ -101,16 +105,20 @@
             v-model:current-page="memberPage"
             :page-size="50"
             :total="members.total"
+            class="pool-pagination"
+            size="small"
             layout="total, prev, pager, next"
             @current-change="loadMembers"
           />
-        </el-tab-pane>
+        </div>
 
-        <el-tab-pane label="领取记录" name="leases">
+        <div v-show="tab === 'leases'" class="pool-pane" role="region" aria-label="领取记录">
           <div class="pool-toolbar">
             <el-select
               v-model="leaseState"
+              class="pool-toolbar__state"
               placeholder="全部状态"
+              aria-label="按领取状态筛选"
               clearable
               @change="
                 leasePage = 1;
@@ -124,7 +132,9 @@
             /></el-select>
             <el-select
               v-model="clientFilter"
+              class="pool-toolbar__state"
               placeholder="全部项目"
+              aria-label="按项目筛选"
               clearable
               @change="
                 leasePage = 1;
@@ -141,24 +151,26 @@
             :data="leases.items"
             v-loading="loading"
             class="pool-table"
+            size="small"
+            height="100%"
             empty-text="项目通过 API 领取邮箱后，记录会显示在这里。"
           >
             <el-table-column prop="address" label="邮箱" min-width="230" />
             <el-table-column prop="project" label="项目" min-width="110" />
             <el-table-column label="状态" width="100"
               ><template #default="{ row }"
-                ><el-tag :type="stateType(row.state)">{{
+                ><span class="pg-dot" :class="stateTone(row.state)">{{
                   stateName(row.state)
-                }}</el-tag></template
+                }}</span></template
               ></el-table-column
             >
-            <el-table-column label="领取 / 到期时间" min-width="185"
+            <el-table-column label="领取 / 到期" min-width="300"
               ><template #default="{ row }"
-                ><div>{{ date(row.created_at) }}</div>
-                <small>{{
+                ><span class="pg-num">{{ date(row.created_at) }}</span>
+                <small class="pool-muted">{{
                   row.state === "used"
-                    ? "已确认使用，保留分配"
-                    : date(row.expires_at)
+                    ? "已确认使用"
+                    : `到期 ${date(row.expires_at)}`
                 }}</small></template
               ></el-table-column
             >
@@ -199,37 +211,43 @@
             v-model:current-page="leasePage"
             :page-size="50"
             :total="leases.total"
+            class="pool-pagination"
+            size="small"
             layout="total, prev, pager, next"
             @current-change="loadLeases"
           />
-        </el-tab-pane>
+        </div>
 
-        <el-tab-pane label="项目 API Key" name="clients">
+        <div v-show="tab === 'clients'" class="pool-pane" role="region" aria-label="项目 API Key">
           <div class="pool-toolbar">
             <el-input
               v-model="projectName"
-              placeholder="项目名称，如 my-app"
+              class="pool-toolbar__search"
+              placeholder="项目名称，如 my-app…"
+              aria-label="新项目名称"
               maxlength="80"
+              autocomplete="off"
+              :spellcheck="false"
+              @keyup.enter="createClient"
             /><el-button type="primary" :loading="busy" @click="createClient"
               >创建项目 Key</el-button
             >
+            <span class="pool-hint">每个项目用独立 Key 领取，只能读到自己的领取记录；Key 仅在创建或轮换时显示一次。</span>
           </div>
-          <p class="pool-hint">
-            每个项目使用独立 Key 领取邮箱，只能读取自己的领取记录。项目 Key
-            仅在创建或轮换时展示。
-          </p>
           <div class="pool-table-scroll" role="region" aria-label="项目 API Key 列表" tabindex="0"><el-table
             :data="clients"
             v-loading="loading || clientsLoading"
             class="pool-table"
+            size="small"
+            height="100%"
             empty-text="创建第一个项目，将 Key 配置到调用程序。"
           >
             <el-table-column prop="project" label="项目" min-width="150" />
             <el-table-column label="状态" width="100"
               ><template #default="{ row }"
-                ><el-tag :type="row.enabled ? 'success' : 'info'">{{
+                ><span class="pg-dot" :class="row.enabled ? 'is-success' : ''">{{
                   row.enabled ? "启用" : "停用"
-                }}</el-tag></template
+                }}</span></template
               ></el-table-column
             >
             <el-table-column label="创建时间" min-width="185"
@@ -254,20 +272,29 @@
               ></el-table-column
             >
           ></el-table></div>
-          <p class="pool-hint">
-            停用项目会停止其邮箱池 API
-            访问。已发放的单邮箱凭据可在「隐私地址」中单独轮换或停用。
+          <p class="pool-hint pool-hint--foot">
+            停用项目会停止其邮箱池 API 访问。已发放的单邮箱凭据可在「隐私地址」中单独轮换或停用。
           </p>
-        </el-tab-pane>
+        </div>
 
-        <el-tab-pane label="库存与定时创建" name="accounts">
-          <p class="pool-hint">
-            开启自动入池后，新创建或新同步的邮箱会进入库存；已有邮箱在「邮箱库存」中手动选择加入。空闲目标为
-            0
-            时按计划创建；达到正数目标时跳过创建，领取后自动恢复。手动批量创建和单次探测均不使用本地创建额度，成功后不额外等待；仍受 Apple 实际响应影响。自动计划每主号滚动 1 小时最多 23 次：Apple Account 新通道 19 次、iCloud Web 旧通道 4 次，至少间隔 2 分钟并错峰执行。仅在明确限流且未产生地址时切换通道；结果不确定、含 HME 或目录确认中的尝试不会自动补造。明确限流默认暂停对应通道 1 小时，更长 Retry-After 以 Apple 为准。本地上限不代表 Apple 官方配额保证。
-          </p>
+        <div v-show="tab === 'accounts'" class="pool-pane" role="region" aria-label="库存与定时创建">
+          <div class="pool-toolbar">
+            <span class="pool-hint">新邮箱入池后进入库存；空闲目标为 0 时按计划创建，达到正数目标时暂停创建。</span>
+            <details class="pg-disclosure pool-rules">
+              <summary>创建规则</summary>
+              <p class="pool-hint">
+                开启自动入池后，新创建或新同步的邮箱会进入库存；已有邮箱在「邮箱库存」中手动选择加入。空闲目标为
+                0
+                时按计划创建；达到正数目标时跳过创建，领取后自动恢复。手动批量创建和单次探测均不使用本地创建额度，成功后不额外等待；仍受 Apple 实际响应影响。自动计划每主号滚动 1 小时最多 23 次：Apple Account 新通道 19 次、iCloud Web 旧通道 4 次，至少间隔 2 分钟并错峰执行。仅在明确限流且未产生地址时切换通道；结果不确定、含 HME 或目录确认中的尝试不会自动补造。明确限流默认暂停对应通道 1 小时，更长 Retry-After 以 Apple 为准。本地上限不代表 Apple 官方配额保证。
+              </p>
+            </details>
+          </div>
+          <div class="pool-table-scroll" role="region" aria-label="库存与定时创建列表" tabindex="0">
           <el-table
             :data="accounts"
+            class="pool-table"
+            size="small"
+            height="100%"
             empty-text="先到「主号」添加账号，并完成 Apple 登录。"
           >
             <el-table-column label="主号" min-width="240"
@@ -293,7 +320,8 @@
                   :max="10000"
                   :step="10"
                   controls-position="right"
-                  style="width: 140px" /></template
+                  size="small"
+                  style="width: 120px" /></template
             ></el-table-column>
             <el-table-column prop="available" label="空闲" width="75" />
             <el-table-column label="定时创建" min-width="200"
@@ -303,13 +331,11 @@
                   :disabled="busy"
                   @change="toggleAutoCreate(row, $event)"
                 />
-                <div>
-                  <small>{{
+                <small class="pool-muted pool-next">{{
                     row.auto_create
-                      ? "下次检查：" + date(row.next_run_at)
+                      ? "下次检查 " + date(row.next_run_at)
                       : "已关闭"
                   }}</small>
-                </div>
                 <small v-if="row.creation_status === 'cooldown'" class="pool-cooldown">创建暂停中；请在主号详情查看是本地预算等待还是 Apple 限流</small>
                 <small v-else-if="row.last_error" class="pool-error">{{
                   row.last_error
@@ -327,26 +353,26 @@
                 ></template
               ></el-table-column
             >
-          </el-table>
-        </el-tab-pane>
+          </el-table></div>
+        </div>
 
-        <el-tab-pane label="API 接入" name="api">
+        <div v-show="tab === 'api'" class="pool-pane" role="region" aria-label="API 接入">
           <div class="pool-api">
-            <h3>1. 领取邮箱及完整凭据</h3>
+            <h3>领取邮箱及完整凭据</h3>
             <p>
               使用项目 Key。request_id
               请在请求前保存，网络重试使用相同编号和参数。每次领取 1–50
               个邮箱，库存不足时整批保持原状。
             </p>
             <pre>{{ claimExample }}</pre>
-            <h3>2. 查询本次领取后的新验证码</h3>
+            <h3>查询本次领取后的新验证码</h3>
             <pre>{{ codeExample }}</pre>
             <p>
               data.success 为 true 时读取 data.otp；no_code 时等待至少 3 秒再请求。
               同一邮箱共用取件限流，429 时按 Retry-After 重试。可以追加
               after=RFC3339 时间，只查询更晚的邮件。
             </p>
-            <h3>3. 确认、释放或续期</h3>
+            <h3>确认、释放或续期</h3>
             <pre>
 POST /api/v1/pool/leases/LEASE_ID/commit
 POST /api/v1/pool/leases/LEASE_ID/release
@@ -359,7 +385,7 @@ POST /api/v1/pool/leases/LEASE_ID/renew
               或到期回收会轮换邮箱整套凭据。已确认使用的邮箱保持占用。所有请求均带项目
               Bearer Key。
             </p>
-            <h3>4. 单邮箱 API、IMAPS 和 OAuth</h3>
+            <h3>单邮箱 API、IMAPS 和 OAuth</h3>
             <pre>
 GET /api/v1/otp
 Authorization: Bearer MAILBOX_API_KEY
@@ -375,8 +401,7 @@ grant_type=refresh_token&amp;client_id=CLIENT_ID&amp;refresh_token=REFRESH_TOKEN
               code 接口。
             </p>
           </div>
-        </el-tab-pane>
-      </el-tabs>
+        </div>
 
       <el-dialog
         v-model="enrollOpen"
@@ -482,18 +507,29 @@ grant_type=refresh_token&amp;client_id=CLIENT_ID&amp;refresh_token=REFRESH_TOKEN
 import PoolReleaseReviews from "../workspace/PoolReleaseReviews.vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { useRoute, useRouter } from "vue-router";
 import zhCn from "element-plus/es/locale/lang/zh-cn";
 import { apiRequest } from "../api/client.js";
 import { getAliasPage, getAllAliases, getAllAccounts } from "../api/admin.js";
 import { mergePoolPageSelection, poolAliasSelectable, submitPoolEnrollment } from "../utils/poolEnrollment.js";
 import { useAuth } from "../stores/auth.js";
-import SectionHeader from "../components/SectionHeader.vue";
+import "../styles/pages.css";
 import RequestAlert from "../components/RequestAlert.vue";
 import { copyText } from "../utils/clipboard.js";
 import { createCheckboxDragSelection } from "../utils/checkboxDragSelection.js";
 
 const auth = useAuth();
-const tab = ref("members"),
+const POOL_TABS = [
+  { name: "members", label: "库存" },
+  { name: "leases", label: "领取记录" },
+  { name: "clients", label: "项目 Key" },
+  { name: "accounts", label: "定时创建" },
+  { name: "api", label: "API 接入" },
+];
+const route = useRoute();
+const router = useRouter();
+const tabFromRoute = () => POOL_TABS.some((item) => item.name === route.query.tab) ? route.query.tab : "members";
+const tab = ref(tabFromRoute()),
   loading = ref(false),
   busy = ref(false),
   error = ref(null);
@@ -574,15 +610,7 @@ const stateName = (s) =>
     released: "已释放",
     expired: "已到期",
   })[s] || s;
-const stateType = (s) =>
-  ({
-    available: "success",
-    leased: "warning",
-    used: "primary",
-    paused: "info",
-    released: "info",
-    expired: "info",
-  })[s] || "info";
+const stateTone = (s) => ({ available: "is-success", leased: "is-warning", used: "is-primary" })[s] || "";
 const date = (value) =>
   value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "-";
 const query = (params) =>
@@ -678,6 +706,16 @@ function loadClients(force = false) {
 function refreshTab() {
   return refresh(false);
 }
+function setTab(name) {
+  if (name === tab.value) return;
+  tab.value = name;
+  router.replace({ query: { ...route.query, tab: name === "members" ? undefined : name } });
+  refreshTab();
+}
+watch(() => route.query.tab, () => {
+  const next = tabFromRoute();
+  if (next !== tab.value) { tab.value = next; refreshTab(); }
+});
 onBeforeUnmount(() => {
   ++poolRefreshTicket;
   ++memberReadTicket;
@@ -952,29 +990,146 @@ onMounted(() => refresh(true));
 .pool-page {
   min-width: 0;
 }
-.pool-table-scroll {
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
+.pool-pane {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
 }
-.pool-table-scroll .pool-table {
-  min-width: 760px;
+.pool-table-scroll {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 160px;
+  margin-inline: calc(-1 * var(--pg-pad));
+  border-block: 1px solid var(--border);
+}
+.pool-table-scroll:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 .pool-toolbar {
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
-  margin: 8px 0;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
 }
-.pool-toolbar .el-select,
-.pool-toolbar .el-input {
-  width: 230px;
+.pool-toolbar__state {
+  width: 132px;
+}
+.pool-toolbar__search {
+  width: 220px;
+}
+.pool-toolbar__count {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pool-toolbar__end {
+  margin-left: auto;
 }
 .pool-hint {
-  line-height: 1.8;
-  color: var(--el-text-color-secondary);
-  margin: 14px 0 20px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+.pool-hint--foot {
+  flex: 0 0 auto;
+}
+.pool-rules {
+  flex-basis: 100%;
+}
+.pool-rules[open] .pool-hint {
+  max-width: 720px;
+}
+.pool-muted {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.pool-next {
+  margin-left: 8px;
+}
+.pool-pagination {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+.pool-page :deep(.pool-table) {
+  --el-table-header-bg-color: var(--table-header);
+  --el-table-row-hover-bg-color: var(--row-hover);
+  --el-table-border-color: var(--border);
+  font-size: 13px;
+}
+.pool-page :deep(.pool-table .el-table__inner-wrapper::before) {
+  display: none;
+}
+.pool-page :deep(.pool-table th.el-table__cell) {
+  height: 32px;
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+.pool-page :deep(.pool-table td.el-table__cell) {
+  height: 32px;
+  padding: 0;
+}
+.pool-page :deep(.pool-table .el-table__cell:first-child .cell) {
+  padding-left: var(--pg-pad);
+}
+.pool-page :deep(.pool-table .el-table__empty-text) {
+  width: auto;
+  padding: 16px 0;
+  color: var(--text-muted);
+  line-height: 20px;
+}
+.pool-page :deep(.pool-table .el-button.is-link) {
+  height: 24px;
+  font-size: 12px;
+}
+.pool-error {
+  color: var(--danger);
+  margin-left: 8px;
+}
+.pool-cooldown {
+  color: var(--warning);
+  margin-left: 8px;
+}
+.pool-api {
+  max-width: 720px;
+  overflow: auto;
+  min-height: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 20px;
+}
+.pool-api h3 {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pool-api h3:first-child {
+  margin-top: 0;
+}
+.pool-api p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+}
+.pool-api pre {
+  margin: 0;
+  padding: 12px;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .enroll-pagination {
@@ -986,42 +1141,19 @@ onMounted(() => refresh(true));
   color: var(--text-secondary);
   font-size: 13px;
 }
+.pool-enrollment-count {
+  color: var(--text-muted);
+  font-size: 12px;
+}
 
 @media (max-width: 560px) {
   .enroll-pagination {
     align-items: flex-start;
     flex-direction: column;
   }
-}
-.pool-error {
-  color: var(--el-color-danger);
-}
-.pool-cooldown { color: var(--el-color-success); }
-.el-pagination {
-  margin-top: 20px;
-  overflow-x: auto;
-}
-.pool-api {
-  max-width: 880px;
-  line-height: 1.8;
-}
-.pool-api h3 {
-  margin: 24px 0 8px;
-}
-.pool-api pre {
-  padding: 18px;
-  background: var(--el-fill-color-light);
-  border-radius: 8px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 13px;
-}
-small {
-  color: var(--el-text-color-secondary);
-}
-.pool-page :deep(.el-table__empty-text) {
-  line-height: 1.8;
-  padding: 20px 0;
-  width: 80%;
+  .pool-toolbar__search,
+  .pool-toolbar__state {
+    width: 100%;
+  }
 }
 </style>
