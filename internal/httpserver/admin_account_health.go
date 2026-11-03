@@ -32,16 +32,17 @@ type accountSessionReader interface {
 	GetAccountSession(context.Context, int64) (hmesync.SessionInfo, error)
 }
 
+// An expired session still in automatic backoff is retrying, not yet a manual login.
 func appleChannelHealth(info hmesync.SessionInfo, err error) string {
 	switch {
 	case err != nil:
 		return appleHealthUnknown
+	case info.Health == appleHealthRetryWait:
+		return appleHealthRetryWait
 	case info.Status == hmesync.StatusExpired:
 		return appleHealthExpired
 	case info.Status != hmesync.StatusAuthenticated:
 		return appleHealthNotConnected
-	case info.Health == appleHealthRetryWait:
-		return appleHealthRetryWait
 	default:
 		return appleHealthHealthy
 	}

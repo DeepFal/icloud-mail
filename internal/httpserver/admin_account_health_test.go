@@ -98,21 +98,24 @@ func TestAdminAPIAccountListFlagsExpiredAppleSessionOnly(t *testing.T) {
 	cookie, _, _ := env.createSession(t, "account-health-expired-admin", "unused-password")
 	adminAPITestCreateAccount(t, env, "health-expired@icloud.com")
 	cases := []struct {
-		name         string
-		web, account string
-		wantWeb      string
-		wantAccount  string
-		attention    bool
+		name          string
+		web, account  string
+		accountHealth string
+		wantWeb       string
+		wantAccount   string
+		attention     bool
 	}{
-		{"web expired", hmesync.StatusExpired, hmesync.StatusAuthenticated, "expired", "healthy", true},
-		{"account expired", hmesync.StatusAuthenticated, hmesync.StatusExpired, "healthy", "expired", true},
-		{"never connected", hmesync.StatusLoginRequired, hmesync.StatusLoginRequired, "not_connected", "not_connected", false},
+		{"web expired", hmesync.StatusExpired, hmesync.StatusAuthenticated, "healthy", "expired", "healthy", true},
+		{"account expired", hmesync.StatusAuthenticated, hmesync.StatusExpired, "login_required", "healthy", "expired", true},
+		// Expired but still in automatic backoff: shown as retrying, not counted as needing action.
+		{"account expired during backoff", hmesync.StatusAuthenticated, hmesync.StatusExpired, "retry_wait", "healthy", "retry_wait", false},
+		{"never connected", hmesync.StatusLoginRequired, hmesync.StatusLoginRequired, "login_required", "not_connected", "not_connected", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			env.server.SetHMESyncService(&accountHealthFake{
 				web:     hmesync.SessionInfo{Status: tc.web},
-				account: hmesync.SessionInfo{Status: tc.account, Health: "healthy"},
+				account: hmesync.SessionInfo{Status: tc.account, Health: tc.accountHealth},
 			})
 			apple := accountHealthList(t, env, cookie)["health-expired@icloud.com"].Apple
 			if apple.Web != tc.wantWeb || apple.Account != tc.wantAccount || apple.NeedsAttention != tc.attention {

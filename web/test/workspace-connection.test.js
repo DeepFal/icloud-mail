@@ -53,6 +53,7 @@ test("apple connection tags describe channels and hide disabled keep-alive", () 
   assert.deepEqual(appleConnectionTags(null), []);
   assert.deepEqual(appleConnectionTags(apple({ account: "expired", keepAlive: "needs_action" })).map((t) => `${t.name}:${t.label}`), ["网页:正常", "账户:已失效", "保活:待处理"]);
   assert.deepEqual(appleConnectionTags(apple({})).map((t) => t.name), ["网页", "账户"]);
+  assert.deepEqual(appleConnectionTags(apple({ account: "retry_wait" })).map((t) => `${t.name}:${t.label}`), ["网页:正常", "账户:重试中"]);
 });
 
 test("account list normalizes the apple health summary", async () => {
