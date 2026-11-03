@@ -26,7 +26,7 @@ info:
     转发地址，不必与最终 `Delivered-To` 相同。若只在 `To/Cc` 留下隐私地址，必须显式启用弱收件人头才会匹配。
     这些规则只控制邮件取件与归属；Apple 目录同步和自动创建仍使用现有的主号默认转发目标校验。
 
-    IMAPS 用户名是隐私地址地址。客户端可以使用本服务签发的 IMAP 密码登录，
+    IMAPS 用户名是隐私地址。客户端可以使用本服务签发的 IMAP 密码登录，
     或通过 `POST /oauth2/v2.0/token` 获取一小时访问令牌后使用 XOAUTH2。
     邮箱只有只读 INBOX，支持 LIST、STATUS、SELECT/EXAMINE、SEARCH、
     FETCH/UID FETCH 和 IDLE；所有写操作返回只读错误。

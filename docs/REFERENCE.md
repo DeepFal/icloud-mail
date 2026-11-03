@@ -221,7 +221,7 @@ curl --fail-with-body -X POST \
 
 ## IMAPS 与令牌接口
 
-IMAPS 用户名固定为隐私地址地址。可使用管理端显示的 IMAP 密码登录，也可先交换 access token，再使用 XOAUTH2 登录。
+IMAPS 用户名固定为隐私地址。可使用管理端显示的 IMAP 密码登录，也可先交换 access token，再使用 XOAUTH2 登录。
 
 ```bash
 curl -X POST 'https://HOST/oauth2/v2.0/token' \

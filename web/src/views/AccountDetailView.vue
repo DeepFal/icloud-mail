@@ -836,7 +836,7 @@
             closable
             @close="aliasFormError = null"
           />
-          <el-form-item label="隐私地址地址" prop="address">
+          <el-form-item label="隐私地址" prop="address">
             <el-input
               v-model="aliasForm.address"
               type="email"
@@ -1418,7 +1418,7 @@ function redirectExpiredSession() {
 function validateAliasAddress(_, value, callback) {
   const normalized = String(value || "").trim();
   if (!normalized) {
-    callback(new Error("请填写隐私地址地址"));
+    callback(new Error("请填写隐私地址"));
     return;
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
@@ -1683,7 +1683,7 @@ async function loadDetail({ silent = false } = {}) {
       detail.account.mailboxType === "custom"
         ? `@${detail.account.emailSuffix}`
         : detail.account.email,
-      "管理按需收件凭据与隐私地址地址目录",
+      "管理按需收件凭据与隐私地址目录",
     );
     return true;
   } catch (error) {
