@@ -2,23 +2,114 @@
   <section
     ref="aliasSelectionContainer"
     @pointerdown.capture="aliasDrag.pointerDown"
-    class="page-stack virtual-list-page aliases-page"
+    class="pg pg--fill virtual-list-page aliases-page"
     aria-labelledby="aliases-section-title"
   >
-    <SectionHeader level="h1"
-      id="aliases-section-title"
-      title="全部隐私地址"
-    >
-      <template #actions>
-        <el-button :icon="FolderAdd" @click="openGroupDialog()">
-          管理分组
+    <header class="pg-bar alias-bar">
+      <h1 id="aliases-section-title" class="pg-title">隐私地址</h1>
+      <div class="alias-list-filters" role="search" aria-label="筛选全部隐私地址">
+        <el-input
+          v-model="keywordDraft"
+          class="alias-list-filter--query"
+          clearable
+          maxlength="200"
+          :prefix-icon="Search"
+          :spellcheck="false"
+          aria-label="关键词：模糊搜索隐私地址"
+          placeholder="邮箱地址或用途备注"
+          @keyup.enter="applyAliasSearch"
+          @clear="applyAliasSearch"
+        />
+        <el-select
+          v-model="selectedAccountId"
+          class="alias-list-filter--account"
+          filterable
+          remote
+          reserve-keyword
+          clearable
+          :loading="accountsLoading"
+          :remote-method="searchAccounts"
+          placeholder="全部主号"
+          aria-label="按所属主号筛选"
+          no-data-text="暂无主号"
+          no-match-text="没有匹配的主号"
+          @change="handleAccountFilterChange"
+        >
+          <el-option label="全部主号" value="" />
+          <el-option
+            v-for="account in accounts"
+            :key="account.id"
+            :label="formatAccountIdentity(account)"
+            :value="account.id"
+          >
+            <div class="pg-cell">
+              <strong>{{ formatAccountIdentity(account) }}</strong>
+              <small v-if="account.name">{{ account.name }}</small>
+            </div>
+          </el-option>
+        </el-select>
+        <el-select
+          v-model="selectedGroupFilter"
+          class="alias-list-filter--group"
+          clearable
+          :loading="groupsLoading"
+          placeholder="全部分组"
+          filterable
+          aria-label="按邮箱分组筛选"
+          @change="handleGroupFilterChange"
+        >
+          <el-option label="全部分组" value="" />
+          <el-option label="未分组" value="none" />
+          <el-option
+            v-for="group in groups"
+            :key="group.id"
+            :label="`${group.name}（${group.aliasCount}）`"
+            :value="String(group.id)"
+          />
+        </el-select>
+        <el-select
+          v-model="selectedLatestMailFilter"
+          class="alias-list-filter--mail"
+          placeholder="全部邮件"
+          aria-label="按最新邮件筛选"
+          @change="handleLatestMailFilterChange"
+        >
+          <el-option label="全部邮件" value="" />
+          <el-option label="没有邮件" value="none" />
+          <el-option label="有邮件" value="yes" />
+        </el-select>
+        <el-button
+          v-if="hasActiveFilters || hasAppliedFilters"
+          :icon="RefreshLeft"
+          @click="resetAliasFilters"
+        >
+          重置
         </el-button>
+      </div>
+      <div class="pg-bar__end">
+        <el-button @click="openGroupDialog()">管理分组</el-button>
         <el-popover trigger="click" placement="bottom-end" :width="220">
-          <template #reference><el-button :icon="MoreFilled" aria-label="更多邮箱操作">更多操作</el-button></template>
+          <template #reference><el-button :icon="MoreFilled" aria-label="更多邮箱操作">更多</el-button></template>
           <div class="alias-more-actions">
         <el-button
+          :icon="CopyDocument"
+          :loading="exportingAll"
+          :disabled="total === 0 || exportingAll || rotatingAllCredentials"
+          @click="copyAllAliases(ALIAS_EXPORT_OTP)"
+        >
+          复制全部取码
+        </el-button>
+        <el-button
+          :icon="CopyDocument"
+          :loading="exportingAll"
+          :disabled="total === 0 || exportingAll || rotatingAllCredentials"
+          @click="copyAllAliases(ALIAS_EXPORT_IMAP)"
+        >
+          复制全部 IMAP
+        </el-button>
+        <el-button
           type="danger"
-          plain
+          text
           :icon="RefreshLeft"
           :loading="rotatingAllCredentials"
           :disabled="rotatingAllCredentials || exportingAll"
@@ -27,39 +118,18 @@
         >
           轮换全部令牌
         </el-button>
-        <el-button
-          type="primary"
-          :icon="CopyDocument"
-          :loading="exportingAll"
-          :disabled="total === 0 || exportingAll || rotatingAllCredentials"
-          @click="copyAllAliases(ALIAS_EXPORT_OTP)"
-        >
-          全部取码
-        </el-button>
-        <el-button
-          type="primary"
-          plain
-          :icon="CopyDocument"
-          :loading="exportingAll"
-          :disabled="total === 0 || exportingAll || rotatingAllCredentials"
-          @click="copyAllAliases(ALIAS_EXPORT_IMAP)"
-        >
-          全部 IMAP
-        </el-button>
           </div>
         </el-popover>
-        <el-tooltip content="刷新隐私地址列表" placement="bottom">
-          <el-button
-            :icon="Refresh"
-            circle
-            :loading="loading"
-            :disabled="rotatingAllCredentials"
-            aria-label="刷新隐私地址列表"
-            @click="loadAliases"
-          />
-        </el-tooltip>
-      </template>
-    </SectionHeader>
+        <el-button
+          :icon="Refresh"
+          :loading="loading"
+          :disabled="rotatingAllCredentials"
+          @click="loadAliases"
+        >
+          刷新
+        </el-button>
+      </div>
+    </header>
 
     <el-dialog
       v-model="groupDialogVisible"
@@ -116,117 +186,18 @@
       <EmptyState v-else level="h3" title="还没有分组" description="创建分组后即可把隐私地址移动进去。" />
     </el-dialog>
 
-    <div class="alias-list-filters" role="search" aria-label="筛选全部隐私地址">
-      <label class="alias-list-filter alias-list-filter--query">
-        <span>关键词</span>
-        <el-input
-          v-model="keywordDraft"
-          clearable
-          maxlength="200"
-          :prefix-icon="Search"
-          aria-label="关键词：模糊搜索隐私地址"
-          placeholder="邮箱地址或用途备注"
-          @keyup.enter="applyAliasSearch"
-          @clear="applyAliasSearch"
-        />
-      </label>
-
-      <label class="alias-list-filter">
-        <span>所属主号</span>
-        <el-select
-          v-model="selectedAccountId"
-          filterable
-          remote
-          reserve-keyword
-          clearable
-          :loading="accountsLoading"
-          :remote-method="searchAccounts"
-          placeholder="全部主号"
-          aria-label="按所属主号筛选"
-          no-data-text="暂无主号"
-          no-match-text="没有匹配的主号"
-          @change="handleAccountFilterChange"
-        >
-          <el-option label="全部主号" value="" />
-          <el-option
-            v-for="account in accounts"
-            :key="account.id"
-            :label="formatAccountIdentity(account)"
-            :value="account.id"
-          >
-            <div class="primary-stack">
-              <strong>{{ formatAccountIdentity(account) }}</strong>
-              <small>{{ account.name || "未填写备注" }}</small>
-            </div>
-          </el-option>
-        </el-select>
-      </label>
-
-      <label class="alias-list-filter">
-        <span>邮箱分组</span>
-        <el-select
-          v-model="selectedGroupFilter"
-          clearable
-          :loading="groupsLoading"
-          placeholder="全部分组"
-          filterable
-          aria-label="按邮箱分组筛选"
-          @change="handleGroupFilterChange"
-        >
-          <el-option label="全部分组" value="" />
-          <el-option label="未分组" value="none" />
-          <el-option
-            v-for="group in groups"
-            :key="group.id"
-            :label="`${group.name}（${group.aliasCount}）`"
-            :value="String(group.id)"
-          />
-        </el-select>
-      </label>
-
-      <label class="alias-list-filter">
-        <span>最新邮件</span>
-        <el-select
-          v-model="selectedLatestMailFilter"
-          placeholder="全部邮件"
-          aria-label="按最新邮件筛选"
-          @change="handleLatestMailFilterChange"
-        >
-          <el-option label="全部邮件" value="" />
-          <el-option label="没有邮件" value="none" />
-          <el-option label="有邮件" value="yes" />
-        </el-select>
-      </label>
-
-      <div class="alias-list-filter-actions">
-        <el-button type="primary" :icon="Search" @click="applyAliasSearch">
-          查询
-        </el-button>
-        <el-button
-          :icon="RefreshLeft"
-          :disabled="!hasActiveFilters && !hasAppliedFilters"
-          @click="resetAliasFilters"
-        >
-          重置
-        </el-button>
-      </div>
-    </div>
-
-    <div class="alias-selection-toolbar" role="group" aria-label="跨页选择与批量操作">
-      <el-checkbox :model-value="allAliasesSelected" :indeterminate="someExportableAliasesSelected" :disabled="selectionBusy || !aliases.length" @change="setAllAliasesSelected">本页全选</el-checkbox>
+    <div v-if="selectedAliasIds.length" class="alias-selection-toolbar" role="toolbar" aria-label="跨页选择与批量操作">
       <span class="selection-count">已选 {{ selectedAliasIds.length }}</span>
       <el-button text :disabled="selectionBusy || !aliases.length" @click="invertCurrentPageSelection">反选本页</el-button>
-      <template v-if="selectedAliasIds.length">
-        <el-button text :disabled="selectionBusy" @click="clearAliasSelection">清空勾选</el-button>
-        <span class="alias-selection-toolbar__spacer" />
-        <el-button :icon="CopyDocument" :disabled="selectionBusy || !selectedAliases.length" @click="copySelectedAliases(ALIAS_EXPORT_OTP)">勾选取码</el-button>
-        <el-button :disabled="selectionBusy || !selectedAliases.length" @click="copySelectedAliases(ALIAS_EXPORT_IMAP)">勾选 IMAP</el-button>
-        <el-select v-model="moveTargetGroupId" class="alias-group-bulk-select" :loading="groupsLoading || movingAliases" :disabled="selectionBusy" placeholder="移动到分组" aria-label="将勾选的隐私地址移动到分组" @change="moveSelectedAliases">
-          <el-option label="未分组" value="none" />
-          <el-option v-for="group in groups" :key="group.id" :label="group.name" :value="String(group.id)" />
-        </el-select>
-        <el-button type="danger" plain :icon="Delete" :loading="deletingAliases" :disabled="selectionBusy" aria-label="从 Apple 永久删除勾选的隐私地址" @click="deleteSelectedAliases">从 Apple 删除（{{ selectedAliasIds.length }}）</el-button>
-      </template>
+      <el-button text :disabled="selectionBusy" @click="clearAliasSelection">取消选择</el-button>
+      <span class="alias-selection-toolbar__spacer" />
+      <el-button :icon="CopyDocument" :disabled="selectionBusy || !selectedAliases.length" @click="copySelectedAliases(ALIAS_EXPORT_OTP)">复制取码</el-button>
+      <el-button :disabled="selectionBusy || !selectedAliases.length" @click="copySelectedAliases(ALIAS_EXPORT_IMAP)">复制 IMAP</el-button>
+      <el-select v-model="moveTargetGroupId" class="alias-group-bulk-select" :loading="groupsLoading || movingAliases" :disabled="selectionBusy" placeholder="移动到分组" aria-label="将勾选的隐私地址移动到分组" @change="moveSelectedAliases">
+        <el-option label="未分组" value="none" />
+        <el-option v-for="group in groups" :key="group.id" :label="group.name" :value="String(group.id)" />
+      </el-select>
+      <el-button type="danger" text :icon="Delete" :loading="deletingAliases" :disabled="selectionBusy" aria-label="从 Apple 永久删除勾选的隐私地址" @click="deleteSelectedAliases">从 Apple 删除（{{ selectedAliasIds.length }}）</el-button>
     </div>
 
     <section
@@ -385,8 +356,8 @@
           :data="aliases"
           row-key="id"
           fill-height
-          :row-height="56"
-          :header-height="40"
+          :row-height="32"
+          :header-height="32"
           :loading="loading"
         >
           <template #header-cell="{ column }">
@@ -411,20 +382,16 @@
               @change="setAliasSelected(row, $event)"
             />
             <template v-else-if="column.key === 'address'">
-              <div class="primary-stack">
-                <strong>{{ row.address }}</strong>
-                <div class="alias-address-meta">
-                  <small v-if="row.note || row.label" :title="row.note || row.label">{{ row.note || row.label }}</small>
-                  <el-tag v-if="isAliasConfirmationPending(row)" type="warning" size="small">待确认</el-tag>
-                  <SyncStatus v-else-if="!row.enabled || row.lastSyncStatus === 'error'" :item="row" />
-                </div>
+              <div class="pg-cell alias-address">
+                <strong :title="row.address" translate="no">{{ row.address }}</strong>
+                <small v-if="row.note || row.label" :title="row.note || row.label">{{ row.note || row.label }}</small>
+                <span v-if="isAliasConfirmationPending(row)" class="pg-badge is-warning">待确认</span>
               </div>
             </template>
             <template v-else-if="column.key === 'account'">
               <el-button
                 class="account-link"
                 link
-                type="primary"
                 @click="openAccount(row.accountId)"
               >
                 {{ formatAliasAccountIdentity(row) || "查看主号" }}
@@ -450,28 +417,21 @@
               </el-select>
             </template>
             <template v-else-if="column.key === 'lastAccessedAt'">
-              {{ formatTime(row.lastAccessedAt) }}
+              <span class="pg-num pg-muted">{{ formatTime(row.lastAccessedAt) }}</span>
             </template>
             <template v-else-if="column.key === 'latestReceivedAt'">
-              {{ formatTime(row.latestReceivedAt) }}
+              <span class="pg-num" :class="{ 'pg-muted': !row.latestReceivedAt }">{{ formatTime(row.latestReceivedAt) }}</span>
             </template>
             <template v-else-if="column.key === 'status'">
-              <el-tag
-                v-if="isAliasConfirmationPending(row)"
-                type="warning"
-                effect="plain"
-                size="small"
-              >
-                等待目录确认
-              </el-tag>
-              <el-tag v-else-if="!row.accountEnabled && row.configuredEnabled" type="info" effect="plain" size="small">随主号暂停</el-tag>
+              <span v-if="isAliasConfirmationPending(row)" class="pg-dot is-warning">等待目录确认</span>
+              <span v-else-if="!row.accountEnabled && row.configuredEnabled" class="pg-dot">随主号暂停</span>
               <SyncStatus v-else :item="row" details />
             </template>
             <template v-else-if="column.key === 'actions'">
-              <div class="icon-action-row alias-row-actions">
-                <el-button v-if="isAliasReceiveAvailable(row)" link type="primary" :icon="Message" @click="openAliasInbox(row)">收件</el-button>
+              <div class="pg-row-actions alias-row-actions">
+                <el-button v-if="isAliasReceiveAvailable(row)" link type="primary" size="small" @click="openAliasInbox(row)">收件</el-button>
                 <el-dropdown trigger="click" placement="bottom-end">
-                  <el-button text :icon="MoreFilled" :aria-label="`更多操作：${row.address}`" />
+                  <el-button class="pg-icon-btn" :icon="MoreFilled" :aria-label="`更多操作：${row.address}`" />
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item @click="openMailboxProfile(row)">备注与服务登记</el-dropdown-item>
@@ -506,15 +466,8 @@
                 <small v-if="alias.note || alias.label">{{ alias.note || alias.label }}</small>
               </div>
             </div>
-            <el-tag
-              v-if="isAliasConfirmationPending(alias)"
-              type="warning"
-              effect="plain"
-              size="small"
-            >
-              等待目录确认
-            </el-tag>
-            <el-tag v-else-if="!alias.accountEnabled && alias.configuredEnabled" type="info" effect="plain" size="small">随主号暂停</el-tag>
+            <span v-if="isAliasConfirmationPending(alias)" class="pg-dot is-warning">等待目录确认</span>
+            <span v-else-if="!alias.accountEnabled && alias.configuredEnabled" class="pg-dot">随主号暂停</span>
             <SyncStatus v-else :item="alias" />
           </header>
           <dl class="mobile-kv-list">
@@ -583,7 +536,7 @@ import {
 } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import {
   createMailGroup,
@@ -605,7 +558,7 @@ import EmptyState from "../components/EmptyState.vue";
 import MailboxProfileDrawer from "../workspace/MailboxProfileDrawer.vue";
 import ListPagination from "../components/ListPagination.vue";
 import RequestAlert from "../components/RequestAlert.vue";
-import SectionHeader from "../components/SectionHeader.vue";
+import "../styles/pages.css";
 import SyncStatus from "../components/SyncStatus.vue";
 import VirtualDataTable from "../components/VirtualDataTable.vue";
 import { useAuth } from "../stores/auth.js";
@@ -645,6 +598,7 @@ import {
 } from "../utils/pagination.js";
 
 const router = useRouter();
+const route = useRoute();
 const profileAliasId = ref(""), profileOpen = ref(false);
 function openMailboxProfile(alias) { profileAliasId.value = alias.id; profileOpen.value = true; }
 function mailboxProfileUpdated(profile) { for (const alias of aliases.value) if (alias.address === profile.address) alias.note = profile.note; }
@@ -652,14 +606,14 @@ const auth = useAuth();
 const ACCOUNT_OPTION_LIMIT = 50;
 const pageSize = ref(DEFAULT_PAGE_SIZE);
 const aliasColumns = [
-  { key: "selection", title: "", width: 44, align: "center", fixed: "left" },
-  { key: "address", title: "隐私地址", width: 250, flexGrow: 2 },
-  { key: "account", title: "所属主号", width: 170, flexGrow: 1, hideBelow: 1050 },
-  { key: "group", title: "分组", width: 122 },
-  { key: "lastAccessedAt", title: "最近调用", width: 140, hideBelow: 1250 },
-  { key: "latestReceivedAt", title: "最新邮件", width: 145, flexGrow: 1 },
-  { key: "status", title: "状态", width: 110, hideBelow: 920 },
-  { key: "actions", title: "操作", width: 112, align: "right", fixed: "right" },
+  { key: "selection", title: "", width: 40, align: "center" },
+  { key: "address", title: "隐私地址", width: 280, flexGrow: 3 },
+  { key: "account", title: "所属主号", width: 180, flexGrow: 1, hideBelow: 1050 },
+  { key: "group", title: "分组", width: 120 },
+  { key: "lastAccessedAt", title: "最近调用", width: 136, hideBelow: 1250 },
+  { key: "latestReceivedAt", title: "最新邮件", width: 136 },
+  { key: "status", title: "状态", width: 184, hideBelow: 800 },
+  { key: "actions", title: "", width: 88, align: "right" },
 ];
 const aliases = ref([]);
 const accounts = ref([]);
@@ -680,6 +634,33 @@ const movingAliases = ref(false);
 const movingAliasIds = reactive({});
 const keywordDraft = ref("");
 const appliedAliasQuery = ref("");
+
+// Filters live in the URL (?q, account, group, mail) so the list can be refreshed or shared.
+function readAliasFiltersFromRoute() {
+  const pick = (key) => (typeof route.query[key] === "string" ? route.query[key].trim() : "");
+  const account = pick("account");
+  keywordDraft.value = pick("q");
+  appliedAliasQuery.value = keywordDraft.value;
+  selectedAccountId.value = /^\d+$/.test(account) ? Number(account) : "";
+  selectedGroupFilter.value = pick("group");
+  appliedGroupId.value = selectedGroupFilter.value;
+  selectedLatestMailFilter.value = ["none", "yes"].includes(pick("mail")) ? pick("mail") : "";
+}
+readAliasFiltersFromRoute();
+watch(
+  () => [appliedAliasQuery.value, selectedAccountId.value, appliedGroupId.value, selectedLatestMailFilter.value],
+  ([q, account, group, mail]) => {
+    if (route.name !== "aliases") return;
+    const query = {};
+    if (q) query.q = q;
+    if (account !== "" && account != null) query.account = String(account);
+    if (group) query.group = group;
+    if (mail) query.mail = mail;
+    const current = route.query;
+    const same = ["q", "account", "group", "mail"].every((key) => (current[key] ?? "") === (query[key] ?? ""));
+    if (!same) void router.replace({ query });
+  },
+);
 const currentPage = ref(1);
 const total = ref(0);
 const selectedAliasIds = ref([]);
@@ -1708,36 +1689,46 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.alias-selection-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-height: 32px; }
-.selection-count { color: var(--text-secondary); font-size: 12px; }
+.alias-bar { flex-wrap: nowrap; }
+.alias-list-filters { display: flex; flex: 1 1 auto; align-items: center; gap: 8px; min-width: 0; }
+.alias-list-filter--query { flex: 0 1 240px; width: 240px; min-width: 150px; }
+.alias-list-filter--account { flex: 0 1 200px; width: 200px; min-width: 120px; }
+.alias-list-filter--group { flex: 0 1 140px; width: 140px; min-width: 100px; }
+.alias-list-filter--mail { flex: 0 0 104px; width: 104px; }
+
+.alias-selection-toolbar { display: flex; flex: 0 0 auto; align-items: center; gap: 4px 8px; min-height: 36px; margin-inline: calc(-1 * var(--pg-pad)); padding: 0 var(--pg-pad); background: var(--surface-subtle); border-block: 1px solid var(--border); }
+.selection-count { color: var(--text); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .alias-selection-toolbar__spacer { flex: 1; }
-.alias-more-actions { display: grid; gap: 5px; }
+.alias-more-actions { display: grid; gap: 4px; }
 .alias-more-actions .el-button { width: 100%; justify-content: flex-start; margin-left: 0; }
-.alias-row-actions { gap: 8px; }
-.alias-row-actions :deep(.el-button) { padding-left: 5px; padding-right: 5px; }
-.alias-address-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.alias-address-meta > small { flex: 0 1 auto; }
+.alias-address > strong { font-family: var(--font-mono); font-size: 12px; }
+.alias-address > .pg-badge { flex: 0 0 auto; }
 
 .alias-deletion-progress {
   display: grid;
   flex: 0 0 auto;
   min-width: 0;
   max-height: 40vh;
-  gap: 10px;
-  padding: 16px;
+  gap: 8px;
+  padding: 8px 0 12px;
   overflow: auto;
   overflow-wrap: anywhere;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
 }
 
 .alias-deletion-progress__header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .alias-deletion-progress__meta,
 .alias-deletion-progress__hint {
+  margin: 0;
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.6;
@@ -1746,11 +1737,13 @@ onBeforeUnmount(() => {
 .alias-deletion-progress__failures,
 .alias-deletion-progress__waits {
   display: grid;
-  gap: 6px;
-  font-size: 13px;
+  gap: 4px;
+  font-size: 12px;
 }
 
 .alias-deletion-progress summary {
+  color: var(--text-secondary);
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -1758,23 +1751,39 @@ onBeforeUnmount(() => {
   max-height: 220px;
   padding-left: 20px;
   overflow: auto;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.7;
 }
 
-.alias-list-filters {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.7fr) minmax(115px, 1fr) minmax(100px, .8fr) minmax(100px, .8fr) auto;
-  align-items: center;
-  gap: 8px;
-}
-
 .alias-group-bulk-select {
-  width: 150px;
+  width: 140px;
 }
 
 .alias-group-select {
-  width: 104px;
+  width: 100%;
+}
+
+.alias-group-select :deep(.el-select__wrapper) {
+  min-height: 24px;
+  padding: 0 6px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 12px;
+}
+
+.alias-group-select :deep(.el-select__suffix) {
+  opacity: 0;
+}
+
+.alias-group-select:hover :deep(.el-select__wrapper),
+.alias-group-select :deep(.el-select__wrapper.is-focused) {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border-strong) inset;
+}
+
+.alias-group-select:hover :deep(.el-select__suffix),
+.alias-group-select :deep(.el-select__wrapper.is-focused .el-select__suffix) {
+  opacity: 1;
 }
 
 .alias-mobile-record .mobile-record__header { padding: 12px; gap: 8px; }
@@ -1788,7 +1797,7 @@ onBeforeUnmount(() => {
 
 .mail-group-list {
   display: grid;
-  gap: 8px;
+  border-top: 1px solid var(--border);
 }
 
 .mail-group-row {
@@ -1796,15 +1805,16 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  min-height: 36px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .mail-group-row__identity {
-  display: grid;
+  display: flex;
+  align-items: baseline;
   min-width: 0;
-  gap: 3px;
+  gap: 8px;
 }
 
 .mail-group-row__identity strong {
@@ -1824,14 +1834,15 @@ onBeforeUnmount(() => {
   gap: 4px;
 }
 
-.alias-list-filter { display: block; min-width: 0; }
-.alias-list-filter > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-.alias-list-filter-actions { display: flex; align-items: center; gap: 6px; }
-.alias-list-filter-actions .el-button { margin-left: 0; padding-left: 10px; padding-right: 10px; }
-
 .account-link {
   max-width: 100%;
   justify-content: flex-start;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.account-link:hover {
+  color: var(--primary);
 }
 
 .account-link :deep(span) {
@@ -1861,13 +1872,13 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1000px) {
-  .alias-list-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .alias-list-filter--query { grid-column: span 2; }
-  .alias-list-filter-actions { justify-content: flex-end; }
+  .alias-bar { flex-wrap: wrap; }
+  .alias-list-filters { order: 10; flex-basis: 100%; }
 }
 @media (max-width: 740px) {
-  .alias-list-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .alias-list-filter-actions > .el-button { flex: 1; min-width: 0; }
-  .alias-selection-toolbar { gap: 4px 8px; }
+  .alias-list-filters { flex-wrap: wrap; }
+  .alias-list-filter--query { flex: 1 1 100%; width: 100%; }
+  .alias-list-filter--account, .alias-list-filter--group, .alias-list-filter--mail { flex: 1 1 40%; width: auto; }
+  .alias-selection-toolbar { flex-wrap: wrap; padding-block: 6px; }
 }
 </style>
