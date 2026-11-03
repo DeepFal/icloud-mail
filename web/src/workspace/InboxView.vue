@@ -1,8 +1,8 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { ArrowLeft, ArrowRight, Box, Close, Collection, CopyDocument, Delete, Download, Message, Plus, Refresh, Search, Star, StarFilled } from "@element-plus/icons-vue";
+import { ArrowLeft, ArrowRight, Box, Close, Collection, CopyDocument, Delete, Download, Message, Refresh, Search, Star, StarFilled } from "@element-plus/icons-vue";
 import { syncAccount } from "../api/admin.js";
 import { useAuth } from "../stores/auth.js";
 import { apiRequest } from "../api/client.js";
@@ -10,6 +10,7 @@ import { createLiveRefresh } from "../utils/liveRefresh.js";
 import { batchMessages, getMessage, getMessages, messagePath, patchMessage } from "./mail-api.js";
 import { formatMailDate } from "./mail-format.js";
 import { setUnreadBadge } from "../stores/page.js";
+import { copyText } from "../utils/clipboard.js";
 import { messageKey, useInboxMessages, watchInboxFilters } from "./inbox-state.js";
 import { useInboxReceive } from "./inbox-receive.js";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
@@ -33,16 +34,17 @@ const { receiving, notice: receiveNotice, receive } = useInboxReceive({ getAccou
 const sourcePath = computed(() => selected.value ? messagePath(`/mailboxes/${selected.value.aliasId}/messages/${selected.value.mailboxUid}/source`) : "");
 const hasFilters = computed(() => Boolean(filters.query.trim() || filters.accountId || filters.aliasId || filters.groupId || filters.unread || filters.starred || filters.hasOtp));
 const optionFilterCount = computed(() => [filters.accountId, filters.aliasId, filters.groupId].filter(Boolean).length);
+const folders = [{ id: "inbox", name: "收件箱" }, { id: "archived", name: "已归档" }, { id: "trash", name: "垃圾箱" }];
 const historyTarget = computed(() => {
   const account = accounts.value.find((item) => String(item.id) === filters.accountId) || accounts.value.find((item) => item.enabled);
   return account ? { name: "account-detail", params: { id: account.id } } : { name: "accounts" };
 });
 const emptyState = computed(() => {
-  if (hasFilters.value) return { title: "没有符合条件的邮件", description: "换个关键词，或清除筛选后查看全部结果。", action: "清除筛选", kind: "filters" };
-  if (!metaLoading.value && !metaError.value && !accounts.value.length) return { title: "接收你的第一封邮件", description: "添加主号并完成收件连接，来信就会出现在这里。", action: "添加主号", kind: "setup" };
-  if (filters.folder === "archived") return { title: "还没有归档邮件", description: "归档后的邮件会保留在这里，随时可以移回收件箱。" };
-  if (filters.folder === "trash") return { title: "垃圾箱是空的", description: "移到这里的邮件可以恢复到原来的位置。" };
-  return { title: "暂时没有新来信", description: "主号收到的新邮件会自动显示在这里，也可以在主号设置中补取历史邮件。", action: "补取历史邮件", kind: "history" };
+  if (hasFilters.value) return { title: "没有符合条件的邮件。", action: "清除筛选", kind: "filters" };
+  if (!metaLoading.value && !metaError.value && !accounts.value.length) return { title: "还没有主号，添加并连接后来信会出现在这里。", action: "添加主号", kind: "setup" };
+  if (filters.folder === "archived") return { title: "没有归档邮件。" };
+  if (filters.folder === "trash") return { title: "垃圾箱是空的。" };
+  return { title: "暂时没有来信。", action: "补取历史邮件", kind: "history" };
 });
 const pinnedMessage = computed(() => {
   if (!selected.value || selectedIndex.value >= 0) return "";
@@ -103,8 +105,8 @@ async function undoMove() {
   try { if (await mutate(action.patch, action.mail)) { if (lastAction.value === action) lastAction.value = null; ElMessage.success("已撤销，邮件已恢复"); } }
   finally { undoing.value = false; }
 }
-async function copyCode() { try { await navigator.clipboard.writeText(selected.value.otp); ElMessage.success("验证码已复制"); } catch { ElMessage.error("浏览器未允许复制，请手动选择验证码"); } }
-async function copyLink(link) { try { await navigator.clipboard.writeText(link.url); ElMessage.success("邮件链接已复制"); } catch { ElMessage.error("复制失败，请手动选择链接"); } }
+async function copyCode(mail = selected.value) { if (!mail?.otp) return; if (await copyText(mail.otp)) ElMessage.success(`验证码 ${mail.otp} 已复制`); else ElMessage.error("浏览器未允许复制，请手动选择验证码"); }
+async function copyLink(link) { if (await copyText(link.url)) ElMessage.success("邮件链接已复制"); else ElMessage.error("复制失败，请手动选择链接"); }
 function profileUpdated(profile) {
   const alias = aliases.value.find((item) => String(item.id) === String(profile.alias_id));
   if (alias) alias.note = profile.note;
@@ -113,93 +115,156 @@ function profileUpdated(profile) {
 }
 function profileEvent(event) { if (event.detail) profileUpdated({ alias_id: event.detail.aliasId, ...event.detail }); }
 function safeHTML(value) { return `<!doctype html><html><head><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"><style>body{font:14px/1.9 system-ui,sans-serif;margin:16px;color:#27312f;overflow-wrap:anywhere}table{border-collapse:collapse;max-width:100%}td,th{border:1px solid #ddd;padding:8px}pre{white-space:pre-wrap}</style></head><body>${value || ""}</body></html>`; }
+const readerScroll = ref(null);
+watch(() => messageKey(selected.value), () => { readerScroll.value?.scrollTo({ top: 0 }); });
+// List column width: dragged or arrow keys on the divider, remembered per browser.
+const LIST_WIDTH_KEY = "icloud-inbox-list-width";
+const clampWidth = (value) => Math.min(520, Math.max(280, Math.round(Number(value) || 340)));
+const listWidth = ref(clampWidth((() => { try { return localStorage.getItem(LIST_WIDTH_KEY); } catch { return null; } })()));
+const resizing = ref(false);
+function saveListWidth() { try { localStorage.setItem(LIST_WIDTH_KEY, String(listWidth.value)); } catch { /* optional */ } }
+function startResize(event) {
+  if (event.button !== 0) return;
+  const startX = event.clientX, startWidth = listWidth.value;
+  const move = (e) => { listWidth.value = clampWidth(startWidth + e.clientX - startX); };
+  const stop = () => { resizing.value = false; window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", stop); window.removeEventListener("pointercancel", stop); saveListWidth(); };
+  resizing.value = true;
+  window.addEventListener("pointermove", move); window.addEventListener("pointerup", stop); window.addEventListener("pointercancel", stop);
+}
+function resizeKey(event) { const step = { ArrowLeft: -16, ArrowRight: 16 }[event.key]; if (!step) return; event.preventDefault(); listWidth.value = clampWidth(listWidth.value + step); saveListWidth(); }
+const searchInput = ref(null), listScroll = ref(null);
+function openMessage(mail) { selectMessage(mail); nextTick(() => listScroll.value?.querySelector(".message-row.selected")?.scrollIntoView({ block: "nearest" })); }
+// j/k move, Enter opens, e archives, c copies the code, / searches. Typing and overlays are left alone.
+function shortcut(event) {
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || profileOpen.value) return;
+  if (event.target?.closest?.("input, textarea, select, [contenteditable], .el-overlay, .el-popper")) return;
+  const key = event.key, mail = selected.value;
+  if (key === "/") { event.preventDefault(); searchInput.value?.focus(); return; }
+  if (selectMode.value) return;
+  if (key === "j" || key === "k") { const target = key === "j" ? nextMessage.value : previousMessage.value; if (target) { event.preventDefault(); openMessage(target); } }
+  else if (key === "Enter" && mail && !event.target?.closest?.("button, a, [role='separator']")) readerOpen.value = true;
+  else if (key === "Escape" && readerOpen.value) readerOpen.value = false;
+  else if (key === "e" && mail && !mail.deleted) moveMessage({ archived: !mail.archived });
+  else if (key === "c" && mail?.otp) copyCode(mail);
+}
 const stopFilterWatch = watchInboxFilters(filters, { onChange: () => { cancelList(); resetReader(); checked.clear(); }, reload: () => { page.value = 1; loadList({ keep: false }); } });
 watch(unreadCount, (count) => setUnreadBadge(count), { immediate: true });
 watch(() => route.query.account_id, (value) => { filters.accountId = String(value || ""); });
 watch(() => route.query.alias_id, (value) => { filters.aliasId = String(value || ""); });
-onMounted(() => { loadMeta(); loadList(); liveRefresh.start({ immediate: false }); window.addEventListener("icloud:mailbox-profile-updated", profileEvent); });
-onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); disposed = true; metaVersion++; metaController?.abort(); stopFilterWatch(); liveRefresh.stop(); inbox.dispose(); });
+onMounted(() => { loadMeta(); loadList(); liveRefresh.start({ immediate: false }); window.addEventListener("icloud:mailbox-profile-updated", profileEvent); window.addEventListener("keydown", shortcut); });
+onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); window.removeEventListener("keydown", shortcut); disposed = true; metaVersion++; metaController?.abort(); stopFilterWatch(); liveRefresh.stop(); inbox.dispose(); });
 </script>
 
 <template>
-  <section class="work-inbox">
-    <header class="inbox-toolbar">
-      <h1>收件箱 <small>{{ total }} 封</small></h1>
-      <div class="inbox-actions">
-        <button class="manage-addresses" @click="router.push({ name: 'aliases' })"><Collection /><span>管理隐私地址</span></button>
-      </div>
-    </header>
-    <div v-if="receiveNotice" class="inbox-feedback" :class="{ warning: receiveNotice.error }" :role="receiveNotice.error ? 'alert' : 'status'"><span>{{ receiveNotice.text }}</span><RouterLink v-if="receiveNotice.to" :to="receiveNotice.to">{{ receiveNotice.link }}<ArrowRight /></RouterLink><button v-if="!receiveNotice.pending" class="feedback-dismiss" aria-label="关闭收件提示" @click="receiveNotice = null"><Close /></button></div>
-    <div v-if="lastAction" class="inbox-feedback" role="status"><span>{{ lastAction.label }}</span><button class="undo-action" :disabled="undoing" @click="undoMove">{{ undoing ? '撤销中…' : '撤销' }}</button><button class="feedback-dismiss" aria-label="关闭操作提示" @click="lastAction = null"><Close /></button></div>
-    <div class="inbox-filters">
-      <label class="mail-search"><Search /><input v-model="filters.query" aria-label="搜索标题、发件人或地址" placeholder="搜索标题、发件人或地址…" /></label>
-      <button class="filter-options-toggle" :aria-expanded="filterOptionsOpen" aria-controls="mail-filter-options" @click="filterOptionsOpen = !filterOptionsOpen">筛选<span v-if="optionFilterCount">{{ optionFilterCount }}</span></button>
-      <div id="mail-filter-options" class="mail-filter-options" :class="{ expanded: filterOptionsOpen }">
-        <SearchableMailboxSelect v-model="filters.accountId" :options="accountOptions" aria-label="按主号筛选" placeholder="所有主号" :loading="metaLoading" @change="filters.aliasId = ''" />
-        <SearchableMailboxSelect v-model="filters.aliasId" :options="aliasOptions" aria-label="按隐私地址筛选" placeholder="所有隐私地址" :loading="metaLoading" />
-        <SearchableMailboxSelect v-model="filters.groupId" :options="groupOptions" aria-label="按分组筛选" placeholder="所有分组" :loading="metaLoading" />
-      </div>
+  <section :class="['work-inbox', { 'is-resizing': resizing }]" :style="{ '--list-width': `${listWidth}px` }">
+    <h1 class="sr-only">收件箱</h1>
+    <div v-if="selectMode" class="inbox-bar is-bulk" role="toolbar" aria-label="批量操作">
+      <label class="bulk-all"><input type="checkbox" :checked="allChecked" :indeterminate.prop="checkedMails.length > 0 && !allChecked" @change="toggleAll" />全选</label>
+      <span class="bulk-count" role="status">已选 {{ checkedMails.length }} 封</span>
+      <button class="bar-button" :disabled="!checkedMails.length" @click="bulk('read', '已标为已读')"><Message aria-hidden="true" />已读</button>
+      <button v-if="filters.folder !== 'trash'" class="bar-button" :disabled="!checkedMails.length" @click="bulk(filters.folder === 'archived' ? 'unarchive' : 'archive', filters.folder === 'archived' ? '已移回收件箱' : '已归档')"><Box aria-hidden="true" />{{ filters.folder === 'archived' ? '移回' : '归档' }}</button>
+      <button class="bar-button" :disabled="!checkedMails.length" @click="bulk(filters.folder === 'trash' ? 'restore' : 'trash', filters.folder === 'trash' ? '已恢复' : '已移到垃圾箱')"><Collection v-if="filters.folder === 'trash'" aria-hidden="true" /><Delete v-else aria-hidden="true" />{{ filters.folder === 'trash' ? '恢复' : '删除' }}</button>
+      <button class="list-select bar-button" :aria-pressed="selectMode" @click="toggleSelectMode">完成</button>
     </div>
-    <p v-if="metaError" class="inbox-notice" role="alert">{{ metaError }}<button @click="loadMeta">重新读取筛选选项</button></p>
-    <div class="inbox-list-tools">
-      <nav class="folder-tabs" aria-label="邮件文件夹"><button v-for="folder in [{ id: 'inbox', name: '全部来信' }, { id: 'archived', name: '已归档' }, { id: 'trash', name: '垃圾箱' }]" :key="folder.id" :class="{ active: filters.folder === folder.id }" :aria-pressed="filters.folder === folder.id" @click="filters.folder = folder.id">{{ folder.name }}</button></nav>
-      <div class="mail-state-filters"><label :class="{ active: filters.unread }"><input v-model="filters.unread" type="checkbox" />未读 <span>{{ unreadCount }}</span></label><label :class="{ active: filters.starred }"><input v-model="filters.starred" type="checkbox" />星标</label><label :class="{ active: filters.hasOtp }"><input v-model="filters.hasOtp" type="checkbox" />含验证码</label></div>
-      <button class="list-refresh" :disabled="loading" @click="loadList()"><Refresh :class="{ spinning: loading }" /><span>{{ loading ? '刷新中…' : '刷新' }}</span></button>
+    <div v-else class="inbox-bar">
+      <nav class="segmented" aria-label="邮件文件夹"><button v-for="folder in folders" :key="folder.id" :class="{ active: filters.folder === folder.id }" :aria-pressed="filters.folder === folder.id" @click="filters.folder = folder.id">{{ folder.name }}</button></nav>
+      <div class="state-toggles" role="group" aria-label="按状态筛选">
+        <button :aria-pressed="filters.unread" @click="filters.unread = !filters.unread">未读<span v-if="unreadCount" class="count">{{ unreadCount }}</span></button>
+        <button :aria-pressed="filters.starred" @click="filters.starred = !filters.starred">星标</button>
+        <button :aria-pressed="filters.hasOtp" @click="filters.hasOtp = !filters.hasOtp">验证码</button>
+      </div>
+      <label class="mail-search"><Search aria-hidden="true" /><input ref="searchInput" v-model="filters.query" type="search" name="mail-search" autocomplete="off" spellcheck="false" aria-label="搜索标题、发件人或地址" placeholder="搜索标题、发件人或地址…" /><kbd aria-hidden="true">/</kbd></label>
+      <button class="bar-button filter-toggle" :class="{ active: optionFilterCount }" :aria-expanded="filterOptionsOpen" aria-controls="mail-filter-options" @click="filterOptionsOpen = !filterOptionsOpen">筛选<span v-if="optionFilterCount" class="count">{{ optionFilterCount }}</span></button>
+      <span class="bar-spacer"></span>
+      <button class="list-refresh" :disabled="loading" @click="loadList()" aria-label="刷新列表" title="刷新列表（只读本地归档）"><Refresh :class="{ spinning: loading }" aria-hidden="true" /></button>
       <button class="list-receive" :disabled="receiving || metaLoading || Boolean(metaError)" title="向启用的主号提交收件请求" @click="receive">{{ receiving ? '提交中…' : '收取' }}</button>
-      <button class="list-select" :aria-pressed="selectMode" :disabled="!messages.length && !selectMode" @click="toggleSelectMode">{{ selectMode ? '完成' : '多选' }}</button>
+      <button class="list-select bar-button" :aria-pressed="selectMode" :disabled="!messages.length" @click="toggleSelectMode">多选</button>
     </div>
-    <div v-if="hasFilters" class="active-mail-filters"><span>已应用筛选 · {{ total }} 封结果</span><button @click="clearFilters">清除筛选<Close /></button></div>
+    <div v-show="filterOptionsOpen && !selectMode" id="mail-filter-options" class="inbox-filter-row">
+      <SearchableMailboxSelect v-model="filters.accountId" :options="accountOptions" aria-label="按主号筛选" placeholder="所有主号" :loading="metaLoading" @change="filters.aliasId = ''" />
+      <SearchableMailboxSelect v-model="filters.aliasId" :options="aliasOptions" aria-label="按隐私地址筛选" placeholder="所有隐私地址" :loading="metaLoading" />
+      <SearchableMailboxSelect v-model="filters.groupId" :options="groupOptions" aria-label="按分组筛选" placeholder="所有分组" :loading="metaLoading" />
+      <button v-if="hasFilters" class="link-button" @click="clearFilters">清除全部筛选</button>
+      <button class="link-button" @click="router.push({ name: 'aliases' })">管理隐私地址</button>
+    </div>
     <span class="sr-only" role="status" aria-live="polite">{{ loading ? '正在读取邮件列表' : `当前列表共有 ${total} 封邮件` }}</span>
-    <div :class="['inbox-grid', { 'reader-open': readerOpen }]">
+    <div :class="['inbox-panes', { 'reader-open': readerOpen }]">
       <section :class="['message-list', { 'select-mode': selectMode }]" aria-label="邮件列表" :aria-busy="loading">
-        <div v-if="selectMode" class="bulk-bar" role="toolbar" aria-label="批量操作">
-          <label class="bulk-all"><input type="checkbox" :checked="allChecked" :indeterminate.prop="checkedMails.length > 0 && !allChecked" @change="toggleAll" />全选</label>
-          <span class="bulk-count" role="status">已选 {{ checkedMails.length }} 封</span>
-          <button :disabled="!checkedMails.length" @click="bulk('read', '已标为已读')"><Message />已读</button>
-          <button v-if="filters.folder !== 'trash'" :disabled="!checkedMails.length" @click="bulk(filters.folder === 'archived' ? 'unarchive' : 'archive', filters.folder === 'archived' ? '已移回收件箱' : '已归档')"><Box />{{ filters.folder === 'archived' ? '移回' : '归档' }}</button>
-          <button :disabled="!checkedMails.length" @click="bulk(filters.folder === 'trash' ? 'restore' : 'trash', filters.folder === 'trash' ? '已恢复' : '已移到垃圾箱')"><Collection v-if="filters.folder === 'trash'" /><Delete v-else />{{ filters.folder === 'trash' ? '恢复' : '删除' }}</button>
-        </div>
-        <div v-if="error" class="state error" :class="{ compact: messages.length }" role="alert"><strong>邮件列表暂时无法更新</strong><p>{{ error }}</p><button @click="loadList()">重新加载</button></div>
-        <div v-else-if="loading && !messages.length" class="state" role="status"><Refresh class="spinning" /><span>正在加载邮件…</span></div>
-        <div v-else-if="!messages.length" class="state empty-mail-list"><Message /><strong>{{ emptyState.title }}</strong><p>{{ emptyState.description }}</p><button v-if="emptyState.action" :disabled="metaLoading" @click="emptyAction"><Plus v-if="emptyState.kind === 'setup'" />{{ emptyState.action }}</button></div>
-        <div v-if="messages.length" class="message-list-scroll">
-          <div v-for="mail in messages" :key="messageKey(mail)" :class="['message-row', { selected: !selectMode && messageKey(selected) === messageKey(mail), unread: !mail.read, checked: checked.has(messageKey(mail)) }]">
+        <div v-if="error" class="state error" :class="{ compact: messages.length }" role="alert"><p>{{ error }}</p><button class="bar-button" @click="loadList()">重新加载</button></div>
+        <div v-else-if="loading && !messages.length" class="state" role="status">正在加载邮件…</div>
+        <div v-else-if="!messages.length" class="state"><p>{{ emptyState.title }}</p><button v-if="emptyState.action" class="bar-button" :disabled="metaLoading" @click="emptyAction">{{ emptyState.action }}</button></div>
+        <div v-if="messages.length" ref="listScroll" class="message-list-scroll">
+          <div v-for="mail in messages" :key="messageKey(mail)" :class="['message-row', { selected: !selectMode && messageKey(selected) === messageKey(mail), unread: !mail.read, checked: checked.has(messageKey(mail)), 'has-otp': mail.otp, starred: mail.starred }]">
             <label v-if="selectMode" class="row-check"><input type="checkbox" :checked="checked.has(messageKey(mail))" :aria-label="`选择：${sender(mail)} ${mail.subject}`" @change="toggleCheck(mail)" /></label>
-            <button class="message-row-main" :aria-label="`${sender(mail)}：${mail.subject}${mail.read ? '' : '，未读'}`" :aria-pressed="selectMode ? checked.has(messageKey(mail)) : messageKey(selected) === messageKey(mail)" @click="selectMode ? toggleCheck(mail) : selectMessage(mail)"><span class="message-row-top"><strong><i v-if="!mail.read"></i>{{ sender(mail) }}</strong><time :datetime="mail.receivedAt">{{ date(mail.receivedAt) }}</time></span><b>{{ mail.subject }}</b><small><span class="message-address" :title="mail.address">{{ mail.address }}</span><span v-if="mail.otp" class="message-code-tag">验证码</span></small><span v-if="mail.mailboxNote" class="message-mailbox-note" :title="mail.mailboxNote">{{ mail.mailboxNote }}</span></button>
-            <button class="star" :disabled="busy.has(messageKey(mail))" :title="mail.starred ? '取消星标' : '标记星标'" :aria-label="mail.starred ? '取消星标' : '标记星标'" :aria-pressed="mail.starred" @click="mutate({ starred: !mail.starred }, mail)"><StarFilled v-if="mail.starred" class="starred" /><Star v-else /></button>
+            <button class="message-row-main" :aria-label="`${sender(mail)}：${mail.subject}${mail.read ? '' : '，未读'}`" :aria-pressed="selectMode ? checked.has(messageKey(mail)) : messageKey(selected) === messageKey(mail)" @click="selectMode ? toggleCheck(mail) : openMessage(mail)">
+              <span class="row-line"><strong class="row-from">{{ sender(mail) }}</strong><span class="row-to" :title="mail.address" translate="no">{{ mail.mailboxNote || mail.address }}</span><time :datetime="mail.receivedAt">{{ date(mail.receivedAt) }}</time></span>
+              <span class="row-subject">{{ mail.subject }}</span>
+            </button>
+            <span class="row-trail">
+              <button v-if="mail.otp" class="otp-chip" translate="no" :title="`复制验证码 ${mail.otp}`" :aria-label="`复制验证码 ${mail.otp}`" @click="copyCode(mail)">{{ mail.otp }}</button>
+              <button class="star" :disabled="busy.has(messageKey(mail))" :title="mail.starred ? '取消星标' : '标记星标'" :aria-label="mail.starred ? '取消星标' : '标记星标'" :aria-pressed="mail.starred" @click="mutate({ starred: !mail.starred }, mail)"><StarFilled v-if="mail.starred" class="star-on" aria-hidden="true" /><Star v-else aria-hidden="true" /></button>
+            </span>
           </div>
         </div>
-        <footer class="pager"><button :disabled="page <= 1 || loading" @click="changePage(-1)">上一页</button><span>{{ page }} / {{ pages }} · {{ total }} 封</span><button :disabled="page >= pages || loading" @click="changePage(1)">下一页</button></footer>
+        <footer class="pager"><span>共 {{ total }} 封</span><button :disabled="page <= 1 || loading" aria-label="上一页" @click="changePage(-1)"><ArrowLeft aria-hidden="true" /></button><span>{{ page }} / {{ pages }}</span><button :disabled="page >= pages || loading" aria-label="下一页" @click="changePage(1)"><ArrowRight aria-hidden="true" /></button></footer>
       </section>
+      <div class="pane-divider" role="separator" aria-orientation="vertical" aria-label="调整列表宽度" tabindex="0" :aria-valuenow="listWidth" aria-valuemin="280" aria-valuemax="520" @pointerdown="startResize" @keydown="resizeKey"></div>
       <section class="message-detail" aria-label="邮件阅读" :aria-busy="detailLoading">
         <div class="reader-actions">
-          <button class="back" @click="readerOpen = false"><ArrowLeft />返回</button>
+          <button class="back" @click="readerOpen = false"><ArrowLeft aria-hidden="true" />返回</button>
           <template v-if="selected">
-            <button :disabled="busy.has(messageKey(selected))" :title="selected.archived ? '移回收件箱' : '归档邮件'" :aria-label="selected.archived ? '移回收件箱' : '归档邮件'" @click="moveMessage({ archived: !selected.archived })"><Box /><span class="reader-action-label">{{ selected.archived ? '移回' : '归档' }}</span></button>
-            <button :disabled="busy.has(messageKey(selected))" :title="selected.deleted ? '恢复邮件' : '移到垃圾箱'" :aria-label="selected.deleted ? '恢复邮件' : '移到垃圾箱'" @click="moveMessage({ deleted: !selected.deleted })"><Collection v-if="selected.deleted" /><Delete v-else /><span class="reader-action-label">{{ selected.deleted ? '恢复' : '移到垃圾箱' }}</span></button>
-            <button :disabled="busy.has(messageKey(selected))" :title="selected.read ? '标记未读' : '标记已读'" :aria-label="selected.read ? '标记未读' : '标记已读'" @click="mutate({ read: !selected.read })"><Message /><span class="reader-action-label">{{ selected.read ? '标未读' : '标已读' }}</span></button>
+            <button :disabled="busy.has(messageKey(selected))" :title="selected.archived ? '移回收件箱 (E)' : '归档 (E)'" :aria-label="selected.archived ? '移回收件箱' : '归档邮件'" @click="moveMessage({ archived: !selected.archived })"><Box aria-hidden="true" /><span class="reader-action-label">{{ selected.archived ? '移回' : '归档' }}</span></button>
+            <button :disabled="busy.has(messageKey(selected))" :title="selected.deleted ? '恢复邮件' : '移到垃圾箱'" :aria-label="selected.deleted ? '恢复邮件' : '移到垃圾箱'" @click="moveMessage({ deleted: !selected.deleted })"><Collection v-if="selected.deleted" aria-hidden="true" /><Delete v-else aria-hidden="true" /><span class="reader-action-label">{{ selected.deleted ? '恢复' : '删除' }}</span></button>
+            <button :disabled="busy.has(messageKey(selected))" :title="selected.read ? '标记未读' : '标记已读'" :aria-label="selected.read ? '标记未读' : '标记已读'" @click="mutate({ read: !selected.read })"><Message aria-hidden="true" /><span class="reader-action-label">{{ selected.read ? '标为未读' : '标为已读' }}</span></button>
+            <button :disabled="busy.has(messageKey(selected))" :aria-pressed="selected.starred" :aria-label="selected.starred ? '取消星标' : '标记星标'" :title="selected.starred ? '取消星标' : '标记星标'" @click="mutate({ starred: !selected.starred })"><StarFilled v-if="selected.starred" class="star-on" aria-hidden="true" /><Star v-else aria-hidden="true" /></button>
             <span class="reader-position">{{ selectedIndex >= 0 ? `${selectedIndex + 1} / ${messages.length}` : '阅读中' }}</span>
-            <button class="reader-previous" :disabled="!previousMessage" title="上一封" aria-label="上一封" @click="selectMessage(previousMessage)"><ArrowLeft /></button><button class="reader-next" :disabled="!nextMessage" title="下一封" aria-label="下一封" @click="selectMessage(nextMessage)"><ArrowRight /></button>
+            <button class="reader-previous" :disabled="!previousMessage" title="上一封 (K)" aria-label="上一封" @click="openMessage(previousMessage)"><ArrowLeft aria-hidden="true" /></button><button class="reader-next" :disabled="!nextMessage" title="下一封 (J)" aria-label="下一封" @click="openMessage(nextMessage)"><ArrowRight aria-hidden="true" /></button>
           </template>
         </div>
-        <div v-if="!selected" class="state reader-blank"><Message /><strong>选择一封邮件</strong><p>在左侧查看来信，正文会显示在这里。</p></div>
-        <div v-else class="message-content">
-          <p v-if="pinnedMessage" class="reader-context-note" role="status">{{ pinnedMessage }}</p>
-          <h2>{{ selected.subject }}</h2>
-          <div class="mail-sender"><div><strong>{{ sender(selected) }}</strong><small>{{ selected.from?.[0]?.address || '发件地址未知' }}</small><span>发送至 {{ selected.address }}</span></div><time :datetime="selected.receivedAt">{{ date(selected.receivedAt) }}</time></div>
-          <div class="reader-mailbox-context"><div><span>邮箱备注</span><p>{{ selected.mailboxNote || '尚未添加备注' }}</p></div><button @click="profileOpen = true">编辑备注与服务登记</button></div>
-          <div v-if="selected.otp" class="mail-otp"><span>邮件验证码</span><strong>{{ selected.otp }}</strong><button @click="copyCode"><CopyDocument />复制</button></div>
-          <div v-if="detailLoading" class="state" role="status">正在读取邮件正文…</div>
-          <div v-else-if="detailError" class="state error" role="alert"><strong>暂时无法读取正文</strong><p>{{ detailError }}</p><div class="state-actions"><button @click="retryDetail">重新读取正文</button><a v-if="sourcePath" :href="sourcePath" download>下载原始邮件</a></div></div>
-          <template v-else-if="detail">
-            <div class="body-tools"><button v-if="detail.html" :class="{ active: viewMode === 'html' }" :aria-pressed="viewMode === 'html'" @click="viewMode = 'html'">排版</button><button :class="{ active: viewMode === 'text' }" :aria-pressed="viewMode === 'text'" @click="viewMode = 'text'">纯文本</button><a v-if="detail.contentAvailable" :href="sourcePath" download><Download />下载原文</a></div>
-            <div v-if="!detail.contentAvailable" class="state warning">{{ contentStatus(detail.message.contentState) }}。邮件标题与时间仍然保留。</div>
-            <template v-else><p v-if="detail.body_truncated" class="inbox-notice">正文超过显示预算，当前显示部分内容；可下载原文查看。</p><iframe v-if="viewMode === 'html' && detail.html" class="html-body" sandbox="" referrerpolicy="no-referrer" :srcdoc="safeHTML(detail.html)" title="邮件正文"></iframe><article v-else class="text-body">{{ detail.text || '这封邮件没有文字正文。' }}</article></template>
-            <div v-if="detail.links?.length" class="mail-links"><strong>邮件中的链接</strong><button v-for="link in detail.links" :key="link.url" @click="copyLink(link)"><span>{{ link.host }}</span><CopyDocument />复制链接</button></div>
-            <div v-if="detail.attachments.length" class="attachments"><strong>{{ detail.attachments.length }} 个附件</strong><a v-for="attachment in detail.attachments" :key="attachment.part" :href="messagePath(attachment.download_path)" :download="attachment.name"><span>{{ attachment.name }}<small>{{ Math.ceil(attachment.size / 1024) }} KB</small></span><Download /></a></div>
-          </template>
+        <p v-if="!selected" class="state reader-blank">选择一封邮件查看正文。</p>
+        <div v-else ref="readerScroll" class="reader-scroll">
+          <header class="reader-head">
+            <p v-if="pinnedMessage" class="reader-context-note" role="status">{{ pinnedMessage }}</p>
+            <h2>{{ selected.subject }}</h2>
+            <div class="reader-meta">
+              <strong>{{ sender(selected) }}</strong><span class="mono" translate="no">{{ selected.from?.[0]?.address || '发件地址未知' }}</span>
+              <span class="reader-to">发送至 <span class="mono" translate="no">{{ selected.address }}</span></span>
+              <time :datetime="selected.receivedAt">{{ date(selected.receivedAt) }}</time>
+            </div>
+            <div class="reader-note">
+              <span v-if="selected.mailboxNote" class="reader-note-text" :title="selected.mailboxNote">备注：{{ selected.mailboxNote }}</span>
+              <button class="link-button" @click="profileOpen = true">{{ selected.mailboxNote ? '编辑备注' : '添加备注与服务登记' }}</button>
+              <button v-if="selected.otp" class="otp-copy" :aria-label="`复制验证码 ${selected.otp}`" title="复制验证码 (C)" @click="copyCode(selected)"><span>验证码</span><strong translate="no">{{ selected.otp }}</strong><CopyDocument aria-hidden="true" /></button>
+            </div>
+          </header>
+          <div v-if="detail && !detailLoading && !detailError" class="body-tools">
+            <div v-if="detail.html && detail.contentAvailable" class="segmented small" role="group" aria-label="正文显示方式"><button :class="{ active: viewMode === 'html' }" :aria-pressed="viewMode === 'html'" @click="viewMode = 'html'">排版</button><button :class="{ active: viewMode === 'text' }" :aria-pressed="viewMode === 'text'" @click="viewMode = 'text'">纯文本</button></div>
+            <span v-if="detail.body_truncated" class="body-hint warning">正文过长，仅显示部分</span>
+            <span class="bar-spacer"></span>
+            <el-popover v-if="detail.links?.length" trigger="click" placement="bottom-end" :width="320" popper-class="inbox-popover">
+              <template #reference><button class="tool-button">链接 {{ detail.links.length }}</button></template>
+              <ul class="popover-list" aria-label="邮件中的链接"><li v-for="link in detail.links" :key="link.url"><span :title="link.url" translate="no">{{ link.host }}</span><button :aria-label="`复制链接 ${link.host}`" @click="copyLink(link)"><CopyDocument aria-hidden="true" />复制</button></li></ul>
+            </el-popover>
+            <el-popover v-if="detail.attachments.length" trigger="click" placement="bottom-end" :width="320" popper-class="inbox-popover">
+              <template #reference><button class="tool-button">附件 {{ detail.attachments.length }}</button></template>
+              <ul class="popover-list" aria-label="附件"><li v-for="attachment in detail.attachments" :key="attachment.part"><span :title="attachment.name">{{ attachment.name }}</span><small>{{ Math.ceil(attachment.size / 1024) }}&nbsp;KB</small><a :href="messagePath(attachment.download_path)" :download="attachment.name" :aria-label="`下载 ${attachment.name}`"><Download aria-hidden="true" /></a></li></ul>
+            </el-popover>
+            <a v-if="detail.contentAvailable" class="tool-button" :href="sourcePath" download><Download aria-hidden="true" />原文</a>
+          </div>
+          <div class="reader-body">
+            <div v-if="detailLoading" class="state" role="status">正在读取正文…</div>
+            <div v-else-if="detailError" class="state error" role="alert"><p>{{ detailError }}</p><div class="state-actions"><button class="bar-button" @click="retryDetail">重新读取</button><a v-if="sourcePath" :href="sourcePath" download>下载原始邮件</a></div></div>
+            <p v-else-if="detail && !detail.contentAvailable" class="state warning">{{ contentStatus(detail.message.contentState) }}。标题与时间仍然保留。</p>
+            <iframe v-else-if="detail && viewMode === 'html' && detail.html" class="html-body" sandbox="" referrerpolicy="no-referrer" :srcdoc="safeHTML(detail.html)" title="邮件正文"></iframe>
+            <article v-else-if="detail" class="text-body">{{ detail.text || '这封邮件没有文字正文。' }}</article>
+          </div>
         </div>
       </section>
+    </div>
+    <div class="inbox-toasts">
+      <div v-if="metaError" class="inbox-toast warning" role="alert"><span>{{ metaError }}</span><button class="link-button" @click="loadMeta">重新读取</button></div>
+      <div v-if="receiveNotice" class="inbox-toast" :class="{ warning: receiveNotice.error }" :role="receiveNotice.error ? 'alert' : 'status'"><span>{{ receiveNotice.text }}</span><RouterLink v-if="receiveNotice.to" :to="receiveNotice.to">{{ receiveNotice.link }}</RouterLink><button v-if="!receiveNotice.pending" class="toast-close" aria-label="关闭收件提示" @click="receiveNotice = null"><Close aria-hidden="true" /></button></div>
+      <div v-if="lastAction" class="inbox-toast" role="status"><span>{{ lastAction.label }}</span><button class="link-button" :disabled="undoing" @click="undoMove">{{ undoing ? '撤销中…' : '撤销' }}</button><button class="toast-close" aria-label="关闭操作提示" @click="lastAction = null"><Close aria-hidden="true" /></button></div>
     </div>
     <MailboxProfileDrawer v-model="profileOpen" :alias-id="selected?.aliasId || ''" @updated="profileUpdated" />
   </section>
