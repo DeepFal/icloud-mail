@@ -124,7 +124,7 @@ const renderMode = computed(() => mailRenderMode({ dark: resolvedTheme.value ===
 const frameDocument = computed(() => detail.value?.html ? mailFrameDocument(detail.value.html, { mode: renderMode.value, palette: resolvedTheme.value === "dark" ? readMailPalette() : undefined }) : "");
 const blockedImages = computed(() => viewMode.value === "html" && hasBlockedImages(detail.value?.html));
 function setRenderPreference(value) { renderPreference.value = value; saveRenderPreference(value); }
-// The frame is same-origin but script-free (scripts are never enabled in its sandbox): the parent sizes it to its content so the reading pane is the only scroller.
+// The frame is same-origin but script-free (scripts are never enabled in its sandbox; popups only so links open in a new tab): the parent sizes it to its content so the reading pane is the only scroller.
 const mailFrame = ref(null), readerScroll = ref(null), frameHeight = ref(160);
 let frameWidth = 0;
 function fitFrame() { const height = measureFrameHeight(mailFrame.value?.contentDocument); if (height) frameHeight.value = height; }
@@ -271,7 +271,7 @@ onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:ma
             <div v-if="detailLoading" class="state" role="status">正在读取正文…</div>
             <div v-else-if="detailError" class="state error" role="alert"><p>{{ detailError }}</p><div class="state-actions"><button class="bar-button" @click="retryDetail">重新读取</button><a v-if="sourcePath" :href="sourcePath" download>下载原始邮件</a></div></div>
             <p v-else-if="detail && !detail.contentAvailable" class="state warning">{{ contentStatus(detail.message.contentState) }}。标题与时间仍然保留。</p>
-            <div v-else-if="detail && viewMode === 'html' && detail.html" :class="['html-frame', { 'is-paper': renderMode === 'paper' }]"><iframe ref="mailFrame" class="html-body" sandbox="allow-same-origin" referrerpolicy="no-referrer" scrolling="no" :srcdoc="frameDocument" :style="{ height: `${frameHeight}px` }" title="邮件正文" @load="fitFrame"></iframe></div>
+            <div v-else-if="detail && viewMode === 'html' && detail.html" :class="['html-frame', { 'is-paper': renderMode === 'paper' }]"><iframe ref="mailFrame" class="html-body" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" scrolling="no" :srcdoc="frameDocument" :style="{ height: `${frameHeight}px` }" title="邮件正文" @load="fitFrame"></iframe></div>
             <article v-else-if="detail" class="text-body">{{ detail.text || '这封邮件没有文字正文。' }}</article>
           </div>
         </div>

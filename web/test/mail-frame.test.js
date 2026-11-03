@@ -9,6 +9,7 @@ test("the frame document keeps the CSP lock-down and drops the old fixed white b
   const doc = mailFrameDocument("<p>正文</p>");
   assert.match(doc, /default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'/);
   assert.match(doc, /<meta name="referrer" content="no-referrer">/);
+  assert.match(doc, /base-uri 'none'"><base target="_blank">/, "links never navigate the frame itself");
   assert.match(doc, /<body><p>正文<\/p><\/body>/);
   assert.doesNotMatch(doc, /td,th\{border|line-height:1\.9|450px/);
   assert.match(doc, /html\{color-scheme:light;/);
@@ -48,6 +49,8 @@ test("render mode: light theme renders as-is, plain mail adapts, designed mail f
 
 test("blocked remote images are reported, tracking pixels are not", () => {
   assert.equal(hasBlockedImages('<img src="" width="600" height="220" alt="秋季上新">'), true);
+  assert.equal(hasBlockedImages('<p>x</p><img alt="logo" src="">'), true, "src is not always the first attribute");
+  assert.equal(hasBlockedImages('<img alt="协议相对">'), true, "protocol-relative URLs lose src entirely");
   assert.equal(hasBlockedImages('<img src="" width="1" height="1" alt="">'), false);
   assert.equal(hasBlockedImages('<img src="data:image/png;base64,AAAA" alt="x">'), false);
 });
@@ -59,8 +62,11 @@ test("the inbox frame never runs scripts and is sized by the parent inside one s
   ]);
   const frames = view.match(/<iframe[^>]*>/g) || [];
   assert.equal(frames.length, 1);
-  assert.match(frames[0], /sandbox="allow-same-origin"/);
-  assert.doesNotMatch(view, /allow-scripts|allow-popups|allow-forms|allow-top-navigation/);
+  const sandbox = frames[0].match(/\ssandbox="([^"]*)"/)?.[1].split(/\s+/);
+  assert.deepEqual(sandbox, ["allow-same-origin", "allow-popups", "allow-popups-to-escape-sandbox"]);
+  assert.ok(!sandbox.includes("allow-scripts"));
+  assert.doesNotMatch(frames[0], /:sandbox/, "the sandbox value is static");
+  assert.doesNotMatch(view, /allow-scripts|allow-forms|allow-modals|allow-top-navigation/);
   assert.match(frames[0], /:srcdoc="frameDocument"/);
   assert.match(frames[0], /@load="fitFrame"/);
   assert.match(frames[0], /height: `\$\{frameHeight\}px`/);
@@ -80,9 +86,16 @@ test("frame height comes from the loaded document, including a horizontal scroll
   assert.match(mailFrameDocument("<p>x</p>"), /html\{color-scheme:light;display:flow-root;overflow-x:auto;overflow-y:hidden\}/);
 });
 
-test("blanked remote images render as alt-text placeholders, not broken icons", () => {
-  const doc = mailFrameDocument('<img src="" width="600" alt="秋季上新"><img alt="logo" src="">');
-  assert.match(doc, /<img data-blocked width="600" alt="秋季上新">/);
-  assert.match(doc, /<img alt="logo" data-blocked>/);
-  assert.doesNotMatch(doc, /src=""/);
+test("blocked remote images become alt-text boxes, never an <img> Chrome draws a broken icon for", () => {
+  const body = mailFrameDocument(
+    '<img src="" width="600" height="220" alt="秋季上新"><img alt="logo" src=""><img alt="协议相对"/>' +
+    '<img src="" width="50%" style="display: block; height: auto" alt="半宽">' +
+    '<img src="" width="120" height="40"><img src="" alt=" "><img src="" width="1" height="1" alt="像素">' +
+    '<img src="data:image/png;base64,AAAA" alt="内嵌">',
+  ).match(/<body>(.*)<\/body>/)[1];
+  assert.equal(body,
+    '<span data-blocked style="width:600px;height:220px">秋季上新</span><span data-blocked>logo</span><span data-blocked>协议相对</span>' +
+    '<span data-blocked style="width:50%;display: block; height: auto">半宽</span>' +
+    '<img src="data:image/png;base64,AAAA" alt="内嵌">');
+  assert.match(mailFrameDocument(""), /\[data-blocked\]\{display:inline-block;[^}]*outline:1px dashed/);
 });
