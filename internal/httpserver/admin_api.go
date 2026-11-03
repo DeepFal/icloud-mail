@@ -59,6 +59,7 @@ func (s *Server) registerAdminAPIRoutes(api *gin.RouterGroup) {
 	)
 	protected.GET("/auth/session", s.adminAPISession)
 	protected.GET("/messages", s.adminAPIListWorkspaceMail)
+	protected.POST("/messages/batch", s.adminAPIBatchWorkspaceMail)
 	protected.GET("/mailboxes/:aliasID/messages/:uid", s.adminAPIWorkspaceMailDetail)
 	protected.PATCH("/mailboxes/:aliasID/messages/:uid", s.adminAPIPatchWorkspaceMail)
 	protected.GET("/mailboxes/:aliasID/messages/:uid/attachments/:part", s.adminAPIWorkspaceMailAttachment)

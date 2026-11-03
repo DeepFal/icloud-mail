@@ -50,17 +50,20 @@ func (s *Server) adminAPIListWorkspaceMail(c *gin.Context) {
 			}
 		}
 	}
-	for _, key := range []string{"unread", "starred"} {
+	for _, key := range []string{"unread", "starred", "has_otp"} {
 		v := c.Query(key)
 		if v != "" && v != "0" && v != "1" && v != "true" && v != "false" {
 			writeAdminAPIError(c, 400, "VALIDATION_FAILED", key+"参数无效")
 			return
 		}
 		value := v == "1" || v == "true"
-		if key == "unread" {
+		switch key {
+		case "unread":
 			f.Unread = value
-		} else {
+		case "starred":
 			f.Starred = value
+		default:
+			f.HasOTP = value
 		}
 	}
 	page, err := s.store.ListWorkspaceMail(c.Request.Context(), f)
@@ -117,6 +120,57 @@ func (s *Server) adminAPIPatchWorkspaceMail(c *gin.Context) {
 	}
 	s.audit(c, &admin.AdminID, admin.Username, "workspace_mail_state", "message", fmt.Sprintf("%d/%d", item.AliasID, item.MailboxUID), "success", "")
 	writeAdminAPIData(c, 200, updated)
+}
+
+const workspaceMailBatchLimit = 100
+
+var workspaceMailBatchActions = map[string]domain.WorkspaceMailPatch{
+	"read":      {Read: ptr(true)},
+	"unread":    {Read: ptr(false)},
+	"archive":   {Archived: ptr(true)},
+	"unarchive": {Archived: ptr(false)},
+	"trash":     {Deleted: ptr(true)},
+	"restore":   {Deleted: ptr(false)},
+}
+
+func ptr[T any](v T) *T { return &v }
+
+// adminAPIBatchWorkspaceMail applies one of the single-message state changes to
+// up to workspaceMailBatchLimit messages in one transaction.
+func (s *Server) adminAPIBatchWorkspaceMail(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	var input struct {
+		Action string                    `json:"action"`
+		Items  []domain.WorkspaceMailRef `json:"items"`
+	}
+	if !decodeAdminAPIJSON(c, &input) {
+		return
+	}
+	patch, ok := workspaceMailBatchActions[input.Action]
+	if !ok {
+		writeAdminAPIError(c, 400, "VALIDATION_FAILED", "批量操作类型无效")
+		return
+	}
+	if len(input.Items) == 0 || len(input.Items) > workspaceMailBatchLimit {
+		writeAdminAPIError(c, 400, "VALIDATION_FAILED", fmt.Sprintf("请选择 1 到 %d 封邮件", workspaceMailBatchLimit))
+		return
+	}
+	admin := mustSession(c)
+	err := s.store.PatchWorkspaceMailBatch(c.Request.Context(), admin.AdminID, input.Items, patch)
+	if errors.Is(err, store.ErrWorkspaceMailInput) {
+		writeAdminAPIError(c, 400, "VALIDATION_FAILED", "邮件标识无效")
+		return
+	}
+	if errors.Is(err, store.ErrNotFound) {
+		writeAdminAPIError(c, 404, "NOT_FOUND", "部分邮件不存在，本次未做任何修改")
+		return
+	}
+	if err != nil {
+		s.writeAdminAPIInternalError(c, err)
+		return
+	}
+	s.audit(c, &admin.AdminID, admin.Username, "workspace_mail_batch", "message", input.Action, "success", fmt.Sprintf("count=%d", len(input.Items)))
+	writeAdminAPIData(c, 200, gin.H{"action": input.Action, "updated": len(input.Items)})
 }
 
 type workspaceAttachment struct {

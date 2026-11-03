@@ -24,7 +24,7 @@ export function normalizeMessage(raw = {}) {
 
 export async function getMessages(options = {}) {
   const q = new URLSearchParams();
-  for (const [key, value] of Object.entries({ account_id: options.accountId, alias_id: options.aliasId, group_id: options.groupId, query: options.query, folder: options.folder || "inbox", unread: options.unread ? "1" : "", starred: options.starred ? "1" : "", limit: options.limit ?? 50, offset: options.offset ?? 0 })) {
+  for (const [key, value] of Object.entries({ account_id: options.accountId, alias_id: options.aliasId, group_id: options.groupId, query: options.query, folder: options.folder || "inbox", unread: options.unread ? "1" : "", starred: options.starred ? "1" : "", has_otp: options.hasOtp ? "1" : "", limit: options.limit ?? 50, offset: options.offset ?? 0 })) {
     if (value !== undefined && value !== "") q.set(key, String(value));
   }
   const data = await apiRequest(`/messages?${q}`, { signal: options.signal });
@@ -40,6 +40,11 @@ export async function getMessage(aliasId, uid, options = {}) {
 
 export function patchMessage(aliasId, uid, patch, csrfToken) {
   return apiRequest(`/mailboxes/${encodeURIComponent(aliasId)}/messages/${encodeURIComponent(uid)}`, { method: "PATCH", body: patch, csrfToken }).then(normalizeMessage);
+}
+
+export function batchMessages(action, mails, csrfToken) {
+  const items = mails.map((mail) => ({ alias_id: Number(mail.aliasId), mailbox_uid: Number(mail.mailboxUid) }));
+  return apiRequest("/messages/batch", { method: "POST", body: { action, items }, csrfToken });
 }
 
 export function messagePath(path) {

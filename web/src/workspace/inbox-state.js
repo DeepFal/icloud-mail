@@ -4,7 +4,7 @@ export const messageKey = (mail) => mail ? `${mail.aliasId}:${mail.mailboxUid}` 
 
 // List membership and the open reader have separate lifetimes. In particular,
 // marking a message read must not dismiss it from an unread-only reading flow.
-export function useInboxMessages({ filters, page, pageSize = 40, getMessages, getMessage, patchMessage, getCsrfToken, onError }) {
+export function useInboxMessages({ filters, page, pageSize = 40, getMessages, getMessage, patchMessage, batchMessages, getCsrfToken, onError }) {
   const messages = ref([]), selected = ref(null), detail = ref(null);
   const readerOpen = ref(false), viewMode = ref("text");
   const loading = ref(false), detailLoading = ref(false);
@@ -116,11 +116,33 @@ export function useInboxMessages({ filters, page, pageSize = 40, getMessages, ge
     }
   }
 
+  // One request for many messages; the batch commits as a whole or not at all.
+  async function batch(action, mails) {
+    const keys = mails.map(messageKey);
+    if (!mails.length || disposed || keys.some((key) => busy.has(key))) return false;
+    keys.forEach((key) => busy.add(key));
+    try {
+      await batchMessages(action, mails, getCsrfToken());
+      if (disposed) return false;
+      cancelList();
+      const movesFolder = ["archive", "unarchive", "trash", "restore"].includes(action);
+      const selectedMoved = movesFolder && keys.includes(messageKey(selected.value));
+      if (selectedMoved) resetReader();
+      await loadList({ silent: true, keep: !selectedMoved });
+      return true;
+    } catch (cause) {
+      if (!disposed) onError(cause.message || "批量操作失败，请重试。原状态已保留。");
+      return false;
+    } finally {
+      keys.forEach((key) => busy.delete(key));
+    }
+  }
+
   function dispose() {
     disposed = true;
     cancelList();
     resetReader();
   }
 
-  return { messages, selected, detail, readerOpen, viewMode, loading, detailLoading, error, detailError, total, unreadCount, busy, pages, selectedIndex, previousMessage, nextMessage, loadList, selectMessage, mutate, cancelList, resetReader, dispose };
+  return { messages, selected, detail, readerOpen, viewMode, loading, detailLoading, error, detailError, total, unreadCount, busy, pages, selectedIndex, previousMessage, nextMessage, loadList, selectMessage, mutate, batch, cancelList, resetReader, dispose };
 }

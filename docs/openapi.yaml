@@ -1501,6 +1501,93 @@ paths:
         "500":
           $ref: "#/components/responses/AdminInternalError"
 
+  /api/v1/messages/batch:
+    servers:
+      - url: https://HOST/{admin_path}
+        description: 首选的安装级随机管理 API 前缀；将 admin_path 替换为 keys 卷中值去掉首尾斜杠后的形式
+        variables:
+          admin_path:
+            default: 00000000000000000000000000000000/admin
+            description: 首次启动生成并持久化的管理路径，替换时去掉文件值的开头和结尾斜杠
+      - url: https://HOST/admin
+        description: 升级前客户端使用的固定兼容入口；认证、CSRF 和限流规则相同
+    post:
+      tags: [Administration]
+      operationId: batchUpdateWorkspaceMail
+      summary: 批量修改收件箱邮件的本地状态
+      description: |
+        对多封邮件执行与单封 `PATCH /mailboxes/{aliasID}/messages/{uid}` 相同的本地状态变更
+        （已读、归档、垃圾箱）。只改本面板中当前管理员的状态，不访问 Apple 或上游 IMAP，
+        也不影响取件 API 与只读 IMAPS。整批在一个事务中提交：任一邮件不存在则整批不生效。
+      security:
+        - adminSession: []
+      parameters:
+        - $ref: "#/components/parameters/AdminCSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [action, items]
+              properties:
+                action:
+                  type: string
+                  enum: [read, unread, archive, unarchive, trash, restore]
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [alias_id, mailbox_uid]
+                    properties:
+                      alias_id:
+                        type: integer
+                        format: int64
+                        minimum: 1
+                      mailbox_uid:
+                        type: integer
+                        minimum: 1
+      responses:
+        "200":
+          description: 整批已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [action, updated]
+                    properties:
+                      action:
+                        type: string
+                      updated:
+                        type: integer
+                        minimum: 1
+        "400":
+          $ref: "#/components/responses/AdminBadRequest"
+        "401":
+          $ref: "#/components/responses/AdminAuthUnauthorized"
+        "403":
+          $ref: "#/components/responses/AdminCSRFForbidden"
+        "404":
+          description: 批量中有邮件不存在；本次未做任何修改
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIErrorEnvelope"
+        "413":
+          $ref: "#/components/responses/AdminRequestTooLarge"
+        "415":
+          $ref: "#/components/responses/AdminUnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/AdminInternalError"
+
   /oauth2/v2.0/token:
     post:
       summary: 用 refresh token 换取 IMAPS XOAUTH2 访问令牌

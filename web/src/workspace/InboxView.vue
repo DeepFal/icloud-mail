@@ -7,7 +7,9 @@ import { syncAccount } from "../api/admin.js";
 import { useAuth } from "../stores/auth.js";
 import { apiRequest } from "../api/client.js";
 import { createLiveRefresh } from "../utils/liveRefresh.js";
-import { getMessage, getMessages, messagePath, patchMessage } from "./mail-api.js";
+import { batchMessages, getMessage, getMessages, messagePath, patchMessage } from "./mail-api.js";
+import { formatMailDate } from "./mail-format.js";
+import { setUnreadBadge } from "../stores/page.js";
 import { messageKey, useInboxMessages } from "./inbox-state.js";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
 import MailboxProfileDrawer from "./MailboxProfileDrawer.vue";
@@ -21,13 +23,13 @@ const filterOptionsOpen = ref(false), profileOpen = ref(false);
 const accountOptions = computed(() => accounts.value.map((item) => ({ value: String(item.id), label: item.email, secondary: item.name })));
 const aliasOptions = computed(() => aliases.value.filter((item) => !filters.accountId || String(item.accountId) === filters.accountId).map((item) => ({ value: String(item.id), label: item.address, note: item.note })));
 const groupOptions = computed(() => groups.value.map((item) => ({ value: String(item.id), label: item.name })));
-const filters = reactive({ folder: "inbox", query: "", accountId: String(route.query.account_id || ""), aliasId: String(route.query.alias_id || ""), groupId: "", unread: false, starred: false });
-const inbox = useInboxMessages({ filters, page, getMessages, getMessage, patchMessage, getCsrfToken: () => auth.state.csrfToken, onError: (message) => ElMessage.error(message) });
-const { messages, selected, detail, readerOpen, viewMode, loading, detailLoading, error, detailError, total, unreadCount, busy, pages, selectedIndex, previousMessage, nextMessage, loadList, selectMessage, mutate, cancelList, resetReader } = inbox;
+const filters = reactive({ folder: "inbox", query: "", accountId: String(route.query.account_id || ""), aliasId: String(route.query.alias_id || ""), groupId: "", unread: false, starred: false, hasOtp: false });
+const inbox = useInboxMessages({ filters, page, getMessages, getMessage, patchMessage, batchMessages, getCsrfToken: () => auth.state.csrfToken, onError: (message) => ElMessage.error(message) });
+const { messages, selected, detail, readerOpen, viewMode, loading, detailLoading, error, detailError, total, unreadCount, busy, pages, selectedIndex, previousMessage, nextMessage, loadList, selectMessage, mutate, batch, cancelList, resetReader } = inbox;
 let searchTimer, metaController, metaVersion = 0, disposed = false;
 const liveRefresh = createLiveRefresh(() => loadList({ silent: true }));
 const sourcePath = computed(() => selected.value ? messagePath(`/mailboxes/${selected.value.aliasId}/messages/${selected.value.mailboxUid}/source`) : "");
-const hasFilters = computed(() => Boolean(filters.query.trim() || filters.accountId || filters.aliasId || filters.groupId || filters.unread || filters.starred));
+const hasFilters = computed(() => Boolean(filters.query.trim() || filters.accountId || filters.aliasId || filters.groupId || filters.unread || filters.starred || filters.hasOtp));
 const optionFilterCount = computed(() => [filters.accountId, filters.aliasId, filters.groupId].filter(Boolean).length);
 const historyTarget = computed(() => {
   const account = accounts.value.find((item) => String(item.id) === filters.accountId) || accounts.value.find((item) => item.enabled);
@@ -47,7 +49,7 @@ const pinnedMessage = computed(() => {
   return "这封邮件已不在当前列表中，正文仍为你保留。";
 });
 const sender = (mail) => mail.from?.[0]?.name || mail.from?.[0]?.address || "未知发件人";
-function date(value) { const at = new Date(value); return Number.isFinite(at.getTime()) ? new Intl.DateTimeFormat("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(at) : "时间未知"; }
+const date = formatMailDate;
 function contentStatus(state) { return ({ missing: "归档文件缺失", metadata_only: "仅保存了邮件信息", oversized: "邮件超过归档大小限制", evicted: "正文已按存储策略清理" })[state] || "正文当前不可用"; }
 async function loadMeta() {
   const version = ++metaVersion;
@@ -60,7 +62,7 @@ async function loadMeta() {
   } catch (cause) { if (!disposed && version === metaVersion && cause.name !== "AbortError") metaError.value = cause.message || "筛选信息加载失败。"; }
   finally { if (!disposed && version === metaVersion) metaLoading.value = false; }
 }
-function clearFilters() { Object.assign(filters, { query: "", accountId: "", aliasId: "", groupId: "", unread: false, starred: false }); }
+function clearFilters() { Object.assign(filters, { query: "", accountId: "", aliasId: "", groupId: "", unread: false, starred: false, hasOtp: false }); }
 function emptyAction() {
   if (emptyState.value.kind === "filters") clearFilters();
   else router.push(emptyState.value.kind === "setup" ? { name: "account-new" } : historyTarget.value);
@@ -69,7 +71,18 @@ function retryDetail() { selectMessage(selected.value, { open: readerOpen.value,
 function changePage(delta) {
   const target = page.value + delta;
   if (loading.value || target < 1 || target > pages.value) return;
-  resetReader(); page.value = target; loadList({ keep: false });
+  checked.clear(); resetReader(); page.value = target; loadList({ keep: false });
+}
+const selectMode = ref(false), checked = reactive(new Map());
+const checkedMails = computed(() => messages.value.filter((mail) => checked.has(messageKey(mail))));
+const allChecked = computed(() => messages.value.length > 0 && checkedMails.value.length === messages.value.length);
+function toggleSelectMode() { selectMode.value = !selectMode.value; checked.clear(); if (selectMode.value) readerOpen.value = false; }
+function toggleCheck(mail) { const key = messageKey(mail); if (checked.has(key)) checked.delete(key); else checked.set(key, true); }
+function toggleAll() { if (allChecked.value) checked.clear(); else for (const mail of messages.value) checked.set(messageKey(mail), true); }
+async function bulk(action, label) {
+  const mails = checkedMails.value;
+  if (!mails.length) return;
+  if (await batch(action, mails)) { checked.clear(); ElMessage.success(`${label}：${mails.length} 封`); }
 }
 async function moveMessage(patch) {
   const mail = selected.value;
@@ -126,16 +139,17 @@ function profileUpdated(profile) {
 }
 function profileEvent(event) { if (event.detail) profileUpdated({ alias_id: event.detail.aliasId, ...event.detail }); }
 function safeHTML(value) { return `<!doctype html><html><head><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"><style>body{font:14px/1.9 system-ui,sans-serif;margin:16px;color:#27312f;overflow-wrap:anywhere}table{border-collapse:collapse;max-width:100%}td,th{border:1px solid #ddd;padding:8px}pre{white-space:pre-wrap}</style></head><body>${value || ""}</body></html>`; }
-watch(() => [filters.folder, filters.accountId, filters.aliasId, filters.groupId, filters.unread, filters.starred, filters.query], (values, previous) => {
-  clearTimeout(searchTimer); cancelList(); resetReader();
+watch(() => [filters.folder, filters.accountId, filters.aliasId, filters.groupId, filters.unread, filters.starred, filters.query, filters.hasOtp], (values, previous) => {
+  clearTimeout(searchTimer); cancelList(); resetReader(); checked.clear();
   const reload = () => { page.value = 1; loadList({ keep: false }); };
   const onlyQuery = values.slice(0, -1).every((value, index) => value === previous[index]);
   if (onlyQuery) searchTimer = setTimeout(reload, 250); else reload();
 });
+watch(unreadCount, (count) => setUnreadBadge(count), { immediate: true });
 watch(() => route.query.account_id, (value) => { filters.accountId = String(value || ""); });
 watch(() => route.query.alias_id, (value) => { filters.aliasId = String(value || ""); });
 onMounted(() => { loadMeta(); loadList(); liveRefresh.start({ immediate: false }); window.addEventListener("icloud:mailbox-profile-updated", profileEvent); });
-onBeforeUnmount(() => { window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); disposed = true; metaVersion++; metaController?.abort(); clearTimeout(searchTimer); liveRefresh.stop(); inbox.dispose(); });
+onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); disposed = true; metaVersion++; metaController?.abort(); clearTimeout(searchTimer); liveRefresh.stop(); inbox.dispose(); });
 </script>
 
 <template>
@@ -160,19 +174,28 @@ onBeforeUnmount(() => { window.removeEventListener("icloud:mailbox-profile-updat
     <p v-if="metaError" class="inbox-notice" role="alert">{{ metaError }}<button @click="loadMeta">重新读取筛选选项</button></p>
     <div class="inbox-list-tools">
       <nav class="folder-tabs" aria-label="邮件文件夹"><button v-for="folder in [{ id: 'inbox', name: '全部来信' }, { id: 'archived', name: '已归档' }, { id: 'trash', name: '垃圾箱' }]" :key="folder.id" :class="{ active: filters.folder === folder.id }" :aria-pressed="filters.folder === folder.id" @click="filters.folder = folder.id">{{ folder.name }}</button></nav>
-      <div class="mail-state-filters"><label :class="{ active: filters.unread }"><input v-model="filters.unread" type="checkbox" />未读 <span>{{ unreadCount }}</span></label><label :class="{ active: filters.starred }"><input v-model="filters.starred" type="checkbox" />星标</label></div>
+      <div class="mail-state-filters"><label :class="{ active: filters.unread }"><input v-model="filters.unread" type="checkbox" />未读 <span>{{ unreadCount }}</span></label><label :class="{ active: filters.starred }"><input v-model="filters.starred" type="checkbox" />星标</label><label :class="{ active: filters.hasOtp }"><input v-model="filters.hasOtp" type="checkbox" />含验证码</label></div>
       <button class="list-refresh" :disabled="loading || syncing || metaLoading" @click="refresh"><Refresh :class="{ spinning: loading || syncing }" /><span>{{ syncing ? '上游检查中…' : loading ? '刷新中…' : '刷新' }}</span></button>
+      <button class="list-select" :aria-pressed="selectMode" :disabled="!messages.length && !selectMode" @click="toggleSelectMode">{{ selectMode ? '完成' : '多选' }}</button>
     </div>
     <div v-if="hasFilters" class="active-mail-filters"><span>已应用筛选 · {{ total }} 封结果</span><button @click="clearFilters">清除筛选<Close /></button></div>
     <span class="sr-only" role="status" aria-live="polite">{{ loading ? '正在读取邮件列表' : `当前列表共有 ${total} 封邮件` }}</span>
     <div :class="['inbox-grid', { 'reader-open': readerOpen }]">
-      <section class="message-list" aria-label="邮件列表" :aria-busy="loading">
+      <section :class="['message-list', { 'select-mode': selectMode }]" aria-label="邮件列表" :aria-busy="loading">
+        <div v-if="selectMode" class="bulk-bar" role="toolbar" aria-label="批量操作">
+          <label class="bulk-all"><input type="checkbox" :checked="allChecked" :indeterminate.prop="checkedMails.length > 0 && !allChecked" @change="toggleAll" />全选</label>
+          <span class="bulk-count" role="status">已选 {{ checkedMails.length }} 封</span>
+          <button :disabled="!checkedMails.length" @click="bulk('read', '已标为已读')"><Message />已读</button>
+          <button v-if="filters.folder !== 'trash'" :disabled="!checkedMails.length" @click="bulk(filters.folder === 'archived' ? 'unarchive' : 'archive', filters.folder === 'archived' ? '已移回收件箱' : '已归档')"><Box />{{ filters.folder === 'archived' ? '移回' : '归档' }}</button>
+          <button :disabled="!checkedMails.length" @click="bulk(filters.folder === 'trash' ? 'restore' : 'trash', filters.folder === 'trash' ? '已恢复' : '已移到垃圾箱')"><Collection v-if="filters.folder === 'trash'" /><Delete v-else />{{ filters.folder === 'trash' ? '恢复' : '删除' }}</button>
+        </div>
         <div v-if="error" class="state error" :class="{ compact: messages.length }" role="alert"><strong>邮件列表暂时无法更新</strong><p>{{ error }}</p><button @click="loadList()">重新加载</button></div>
         <div v-else-if="loading && !messages.length" class="state" role="status"><Refresh class="spinning" /><span>正在加载邮件…</span></div>
         <div v-else-if="!messages.length" class="state empty-mail-list"><Message /><strong>{{ emptyState.title }}</strong><p>{{ emptyState.description }}</p><button v-if="emptyState.action" :disabled="metaLoading" @click="emptyAction"><Plus v-if="emptyState.kind === 'setup'" />{{ emptyState.action }}</button></div>
         <div v-if="messages.length" class="message-list-scroll">
-          <div v-for="mail in messages" :key="messageKey(mail)" :class="['message-row', { selected: messageKey(selected) === messageKey(mail), unread: !mail.read }]">
-            <button class="message-row-main" :aria-label="`${sender(mail)}：${mail.subject}${mail.read ? '' : '，未读'}`" :aria-pressed="messageKey(selected) === messageKey(mail)" @click="selectMessage(mail)"><span class="message-row-top"><strong><i v-if="!mail.read"></i>{{ sender(mail) }}</strong><time :datetime="mail.receivedAt">{{ date(mail.receivedAt) }}</time></span><b>{{ mail.subject }}</b><small><span class="message-address" :title="mail.address">{{ mail.address }}</span><span v-if="mail.otp" class="message-code-tag">验证码</span></small><span v-if="mail.mailboxNote" class="message-mailbox-note" :title="mail.mailboxNote">{{ mail.mailboxNote }}</span></button>
+          <div v-for="mail in messages" :key="messageKey(mail)" :class="['message-row', { selected: !selectMode && messageKey(selected) === messageKey(mail), unread: !mail.read, checked: checked.has(messageKey(mail)) }]">
+            <label v-if="selectMode" class="row-check"><input type="checkbox" :checked="checked.has(messageKey(mail))" :aria-label="`选择：${sender(mail)} ${mail.subject}`" @change="toggleCheck(mail)" /></label>
+            <button class="message-row-main" :aria-label="`${sender(mail)}：${mail.subject}${mail.read ? '' : '，未读'}`" :aria-pressed="selectMode ? checked.has(messageKey(mail)) : messageKey(selected) === messageKey(mail)" @click="selectMode ? toggleCheck(mail) : selectMessage(mail)"><span class="message-row-top"><strong><i v-if="!mail.read"></i>{{ sender(mail) }}</strong><time :datetime="mail.receivedAt">{{ date(mail.receivedAt) }}</time></span><b>{{ mail.subject }}</b><small><span class="message-address" :title="mail.address">{{ mail.address }}</span><span v-if="mail.otp" class="message-code-tag">验证码</span></small><span v-if="mail.mailboxNote" class="message-mailbox-note" :title="mail.mailboxNote">{{ mail.mailboxNote }}</span></button>
             <button class="star" :disabled="busy.has(messageKey(mail))" :title="mail.starred ? '取消星标' : '标记星标'" :aria-label="mail.starred ? '取消星标' : '标记星标'" :aria-pressed="mail.starred" @click="mutate({ starred: !mail.starred }, mail)"><StarFilled v-if="mail.starred" class="starred" /><Star v-else /></button>
           </div>
         </div>
