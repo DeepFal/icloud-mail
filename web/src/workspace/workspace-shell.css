@@ -80,7 +80,7 @@ html:has(.workspace-app), html:has(.workspace-app) body { height: 100%; overflow
   .workspace-icon-button, .workspace-app .workspace-topbar .theme-control { width: 44px; height: 44px; }
   .workspace-topbar { flex-basis: 48px; padding: 0 4px; }
   .workspace-content { --content-pad: 12px; }
-  .workspace-drawer { display: block; }
+  .workspace-drawer { display: flex; }
   .workspace-drawer .workspace-nav__item { height: 44px; }
   .workspace-drawer__inner { min-height: 100%; background: var(--surface); }
   .workspace-drawer .workspace-connection { height: 44px; margin: 12px 8px 8px; padding: 0 8px; border-bottom: 1px solid var(--border); }

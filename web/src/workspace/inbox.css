@@ -122,6 +122,7 @@
 .reader-body { display: flow-root; }
 .html-body { display: block; width: 100%; min-height: 120px; border: 0; background: transparent; }
 .html-frame.is-paper { margin: 12px 16px 16px; overflow: hidden; border-radius: 8px; background: var(--paper); }
+html.dark .html-frame.is-paper { filter: brightness(.88); }
 .text-body { max-width: calc(72ch + 40px); margin: 0; padding: 16px 20px 24px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 22px; }
 
 /* States: one sentence and at most one action. */
@@ -171,6 +172,7 @@
   .work-inbox { --ctl: 36px; }
   .inbox-bar:not(.is-bulk) { flex-basis: auto; flex-wrap: wrap; padding: 6px 8px; }
   .inbox-bar .mail-search { order: 1; flex: 1 1 120px; min-width: 120px; max-width: none; }
+  .mail-search input { font-size: 16px; }
   .inbox-bar .mail-search kbd { display: none; }
   .inbox-bar > :is(.filter-toggle, .list-refresh, .list-receive, .list-select) { order: 2; }
   .bar-spacer { display: none; }

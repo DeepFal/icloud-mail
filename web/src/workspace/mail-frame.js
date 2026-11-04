@@ -57,7 +57,10 @@ export function mailFrameDocument(html, { mode = "light", palette = LIGHT } = {}
   const css = `html{color-scheme:${adapt ? "dark" : "light"};display:flow-root;overflow-x:auto;overflow-y:hidden}` +
     `body{margin:0;padding:16px 20px 24px;font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;color:${c.text};background:${c.bg};overflow-wrap:anywhere}` +
     `img{max-width:100%;height:auto}[data-blocked]{display:inline-block;box-sizing:border-box;max-width:100%;overflow:hidden;padding:2px 6px;outline:1px dashed ${c.border};outline-offset:-1px;color:${c.muted};font-size:12px;line-height:1.6;white-space:nowrap;text-overflow:ellipsis;vertical-align:middle}table{max-width:100%!important}pre{white-space:pre-wrap}a{color:${c.link}}` +
-    `blockquote{margin:0 0 0 4px;padding-left:12px;border-left:2px solid ${c.border};color:${c.muted}}${force}`;
+    `blockquote{margin:0 0 0 4px;padding-left:12px;border-left:2px solid ${c.border};color:${c.muted}}${force}` +
+    // Legacy email tables often carry a fixed pixel width. max-width alone does
+    // not constrain their intrinsic layout; keep columns inside a narrow frame.
+    `@media(max-width:640px){table{table-layout:fixed}table[width],table[style*="width"]{width:100%!important}td,th{overflow-wrap:anywhere}}`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer">` +
     `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"><base target="_blank">` +
     `<style>${css}</style></head><body>${blockedImagePlaceholders(html)}</body></html>`;
