@@ -1,19 +1,20 @@
 /* Fixed 100dvh frame: the page never scrolls; each pane owns its own scrolling. */
 html:has(.workspace-app), html:has(.workspace-app) body { height: 100%; overflow: hidden; scrollbar-gutter: auto; }
-.workspace-app { --sidebar-w: 200px; display: flex; height: 100dvh; overflow: hidden; background: var(--app-bg); color: var(--text); font: 13px/1.54 var(--font-ui); }
+.workspace-app { --sidebar-w: 160px; display: flex; height: 100dvh; overflow: hidden; background: var(--app-bg); color: var(--text); font: 13px/1.54 var(--font-ui); }
 .workspace-app.is-collapsed { --sidebar-w: 48px; }
 .workspace-app * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 .workspace-skip { position: absolute; left: -9999px; }
 .workspace-skip:focus { left: 12px; top: 12px; z-index: 20; background: var(--surface); padding: 8px; border-radius: 6px; }
 
-.workspace-sidebar { flex: 0 0 var(--sidebar-w); display: flex; flex-direction: column; min-height: 0; width: var(--sidebar-w); padding: 12px 8px; background: var(--sidebar); border-right: 1px solid var(--border); overflow: hidden; }
+.workspace-sidebar { flex: 0 0 var(--sidebar-w); display: flex; flex-direction: column; min-height: 0; width: var(--sidebar-w); padding: 12px 6px; background: var(--sidebar); border-right: 1px solid var(--border); overflow: hidden; transition: flex-basis 180ms ease, width 180ms ease; }
+.is-collapsed .workspace-sidebar { padding-inline: 8px; }
 .workspace-brand { display: flex; align-items: center; height: 32px; padding: 0 6px; margin-bottom: 8px; }
 .workspace-brand .app-brand { gap: 8px; }
 .workspace-brand .app-brand__mark svg { width: 20px; height: 20px; }
 .workspace-brand .app-brand__copy strong { font-size: 14px; font-weight: 600; }
 .workspace-nav { display: grid; gap: 1px; min-height: 0; overflow: auto; }
 .workspace-nav__group { padding: 12px 8px 4px; color: var(--text-muted); font-size: 12px; line-height: 16px; white-space: nowrap; }
-.workspace-nav__item { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 6px; color: var(--text-secondary); text-decoration: none; white-space: nowrap; }
+.workspace-nav__item { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border-radius: 6px; color: var(--text-secondary); text-decoration: none; white-space: nowrap; }
 .workspace-nav__item svg { flex: 0 0 16px; width: 16px; height: 16px; }
 .workspace-nav__item:hover { background: var(--sidebar-hover); color: var(--text); }
 .workspace-nav__item.active { background: var(--selection-bg); color: var(--text); font-weight: 600; }
