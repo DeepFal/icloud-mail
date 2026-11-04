@@ -12,7 +12,7 @@ import { formatMailDate } from "./mail-format.js";
 import { setUnreadBadge } from "../stores/page.js";
 import { useTheme } from "../stores/theme.js";
 import { copyText } from "../utils/clipboard.js";
-import { hasBlockedImages, isDesignedMail, mailFrameDocument, mailRenderMode, measureFrameHeight, readMailPalette, readRenderPreference, saveRenderPreference } from "./mail-frame.js";
+import { hasBlockedImages, isDesignedMail, mailFrameDocument, mailRenderMode, measureFrameHeight, readMailPalette } from "./mail-frame.js";
 import { messageKey, useInboxMessages, watchInboxFilters } from "./inbox-state.js";
 import { useInboxReceive } from "./inbox-receive.js";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
@@ -116,14 +116,12 @@ function profileUpdated(profile) {
   if (selected.value?.address === profile.address) selected.value.mailboxNote = profile.note;
 }
 function profileEvent(event) { if (event.detail) profileUpdated({ alias_id: event.detail.aliasId, ...event.detail }); }
-// Mail HTML: sandboxed frame; dark theme adapts plain mail and keeps designed mail on light paper unless the user chose otherwise.
+// Mail HTML: sandboxed frame; dark theme adapts plain mail and keeps designed mail on light paper.
 const { resolvedTheme } = useTheme();
-const renderPreference = ref(readRenderPreference());
 const designedMail = computed(() => isDesignedMail(detail.value?.html));
-const renderMode = computed(() => mailRenderMode({ dark: resolvedTheme.value === "dark", designed: designedMail.value, preference: renderPreference.value }));
+const renderMode = computed(() => mailRenderMode({ dark: resolvedTheme.value === "dark", designed: designedMail.value }));
 const frameDocument = computed(() => detail.value?.html ? mailFrameDocument(detail.value.html, { mode: renderMode.value, palette: resolvedTheme.value === "dark" ? readMailPalette() : undefined }) : "");
 const blockedImages = computed(() => viewMode.value === "html" && hasBlockedImages(detail.value?.html));
-function setRenderPreference(value) { renderPreference.value = value; saveRenderPreference(value); }
 // The frame is same-origin but script-free (scripts are never enabled in its sandbox; popups only so links open in a new tab): the parent sizes it to its content so the reading pane is the only scroller.
 const mailFrame = ref(null), readerScroll = ref(null), frameHeight = ref(160);
 let frameWidth = 0;
@@ -253,7 +251,6 @@ onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:ma
           </header>
           <div v-if="detail && !detailLoading && !detailError" class="body-tools">
             <div v-if="detail.html && detail.contentAvailable" class="segmented small" role="group" aria-label="正文显示方式"><button :class="{ active: viewMode === 'html' }" :aria-pressed="viewMode === 'html'" @click="viewMode = 'html'">排版</button><button :class="{ active: viewMode === 'text' }" :aria-pressed="viewMode === 'text'" @click="viewMode = 'text'">纯文本</button></div>
-            <div v-if="viewMode === 'html' && detail.html && designedMail && resolvedTheme === 'dark'" class="segmented small" role="group" aria-label="深色模式下的正文"><button :class="{ active: renderMode === 'paper' }" :aria-pressed="renderMode === 'paper'" @click="setRenderPreference('paper')">原样</button><button :class="{ active: renderMode === 'adapt' }" :aria-pressed="renderMode === 'adapt'" @click="setRenderPreference('adapt')">适配深色</button></div>
             <span v-if="blockedImages" class="body-hint" title="远程图片不会自动加载，避免向发件方暴露阅读行为">远程图片未加载</span>
             <span v-if="detail.body_truncated" class="body-hint warning">正文过长，仅显示部分</span>
             <span class="bar-spacer"></span>

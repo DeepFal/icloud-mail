@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { hasBlockedImages, isDesignedMail, mailFrameDocument, mailRenderMode, measureFrameHeight, readRenderPreference, saveRenderPreference } from "../src/workspace/mail-frame.js";
+import { hasBlockedImages, isDesignedMail, mailFrameDocument, mailRenderMode, measureFrameHeight } from "../src/workspace/mail-frame.js";
 
 const dark = { text: "#eceeef", bg: "#202124", link: "#8eb9ff", border: "#36383c", muted: "#a1a6ae" };
 
@@ -28,23 +28,29 @@ test("adapt mode forces theme colors without inverting images", () => {
 
 test("designed mail is recognised by backgrounds and inline images, not by white wrappers", () => {
   assert.equal(isDesignedMail('<table bgcolor="#ffffff"><tr><td style="background-color: #fff; color: #333">纯文字</td></tr></table>'), false);
+  assert.equal(isDesignedMail('<div style="background: rgb(255, 255, 255); color: #333">纯文字</div>'), false);
+  assert.equal(isDesignedMail('<div style="background-color: rgba(255, 255, 255, 1)">纯文字</div>'), false);
+  assert.equal(isDesignedMail('<div style="background-color: rgb(20, 30, 40)">品牌页眉</div>'), true);
   assert.equal(isDesignedMail("<p>你好</p>"), false);
   assert.equal(isDesignedMail('<td bgcolor="#1f3a5f">页眉</td>'), true);
   assert.equal(isDesignedMail('<div style="padding: 4px; background: #f2f3f5">卡片</div>'), true);
   assert.equal(isDesignedMail('<img src="data:image/png;base64,AAAA" alt="logo">'), true);
 });
 
-test("render mode: light theme renders as-is, plain mail adapts, designed mail follows the saved choice", () => {
-  assert.equal(mailRenderMode({ dark: false, designed: true, preference: "adapt" }), "light");
-  assert.equal(mailRenderMode({ dark: true, designed: false, preference: "paper" }), "adapt");
-  assert.equal(mailRenderMode({ dark: true, designed: true, preference: "paper" }), "paper");
-  assert.equal(mailRenderMode({ dark: true, designed: true, preference: "adapt" }), "adapt");
-  const store = new Map();
-  const storage = { getItem: (key) => store.get(key) ?? null, setItem: (key, value) => store.set(key, value) };
-  assert.equal(readRenderPreference(storage), "paper");
-  saveRenderPreference("adapt", storage);
-  assert.equal(readRenderPreference(storage), "adapt");
-  assert.equal(readRenderPreference({ getItem() { throw new Error("denied"); } }), "paper");
+test("render mode automatically adapts plain mail and keeps marketing mail on light paper", () => {
+  assert.equal(mailRenderMode({ dark: false, designed: false }), "light");
+  assert.equal(mailRenderMode({ dark: false, designed: true }), "light");
+  assert.equal(mailRenderMode({ dark: true, designed: false }), "adapt");
+  assert.equal(mailRenderMode({ dark: true, designed: true }), "paper");
+  assert.equal(mailRenderMode({ dark: true, designed: true, preference: "adapt" }), "paper", "old manual preferences cannot override automatic rendering");
+});
+
+test("blocked newsletter images retain light paper while tracking pixels do not change plain mail", () => {
+  const newsletter = '<table bgcolor="#ffffff"><tr><td><img src="" width="600" height="220" alt="新品"></td></tr></table>';
+  assert.equal(mailRenderMode({ dark: true, designed: isDesignedMail(newsletter) }), "paper");
+  for (const pixel of ['<img src="" width="1" height="1">', '<img width="2" height="2" src="data:image/png;base64,AAAA">']) {
+    assert.equal(mailRenderMode({ dark: true, designed: isDesignedMail(`<p>验证码 123456</p>${pixel}`) }), "adapt");
+  }
 });
 
 test("blocked remote images are reported, tracking pixels are not", () => {

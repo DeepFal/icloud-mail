@@ -3,16 +3,16 @@
 // open in a new tab), its CSP blocks every fetch except data: images, and the
 // parent sizes it to its content so the reading pane stays the single scroller.
 
-export const MAIL_RENDER_KEY = "icloud-mail-dark-render";
 const LIGHT = { text: "#22252a", bg: "#ffffff", link: "#245fc5", border: "#e2e3e0", muted: "#666b72" };
 const NEUTRAL_BG = /^(#fff(fff)?|white|transparent|none|inherit|initial|rgba?\(\s*255\s*,\s*255\s*,\s*255\b.*)$/i;
 
-// Mail with its own non-white backgrounds or inline images is "designed";
+// Mail with its own non-white backgrounds or images is "designed";
 // forcing dark colors onto it breaks its layout, so it stays on light paper.
 export function isDesignedMail(html = "") {
-  if (/<img[^>]*\ssrc="data:/i.test(html)) return true;
+  if ([...html.matchAll(/<img\b[^>]*>/gi)].some(([tag]) => !isPixel(tag))) return true;
   for (const match of html.matchAll(/bgcolor="([^"]*)"|background(?:-color)?:\s*([^;"]+)/gi)) {
-    if (!NEUTRAL_BG.test((match[1] ?? match[2]).trim().split(/\s+/)[0])) return true;
+    const color = (match[1] ?? match[2]).trim().match(/^(?:rgba?\([^)]*\)|\S+)/i)?.[0] || "";
+    if (!NEUTRAL_BG.test(color)) return true;
   }
   return false;
 }
@@ -29,10 +29,9 @@ export function hasBlockedImages(html = "") {
 }
 
 // "paper": the mail's own colors on a light sheet. "adapt": theme colors forced on.
-export function mailRenderMode({ dark, designed, preference }) {
+export function mailRenderMode({ dark, designed }) {
   if (!dark) return "light";
-  if (!designed) return "adapt";
-  return preference === "adapt" ? "adapt" : "paper";
+  return designed ? "paper" : "adapt";
 }
 
 // Chrome draws a broken-image icon on any <img> it cannot load, with or without src, and page CSS
@@ -78,12 +77,4 @@ export function readMailPalette(root = globalThis.document?.documentElement) {
   if (!root || typeof getComputedStyle !== "function") return LIGHT;
   const style = getComputedStyle(root), read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
   return { text: read("--text", LIGHT.text), bg: read("--surface", LIGHT.bg), link: read("--primary", LIGHT.link), border: read("--border", LIGHT.border), muted: read("--text-muted", LIGHT.muted) };
-}
-
-export function readRenderPreference(storage = globalThis.localStorage) {
-  try { return storage?.getItem(MAIL_RENDER_KEY) === "adapt" ? "adapt" : "paper"; } catch { return "paper"; }
-}
-
-export function saveRenderPreference(value, storage = globalThis.localStorage) {
-  try { storage?.setItem(MAIL_RENDER_KEY, value === "adapt" ? "adapt" : "paper"); } catch { /* storage is optional */ }
 }
