@@ -909,8 +909,9 @@ func (s *Server) adminAPIListAccounts(c *gin.Context) {
 		return
 	}
 	items := s.adminAPIAccountsFromDomain(page.Items)
+	health := s.adminAPIAppleHealth(c.Request.Context(), page.Items)
 	for i, account := range page.Items {
-		items[i].Apple = s.adminAPIAppleHealth(c.Request.Context(), account)
+		items[i].Apple = health[account.ID]
 	}
 	writeAdminAPIData(c, http.StatusOK, gin.H{
 		"items":      items,

@@ -95,6 +95,10 @@ func accountSessionInfo(session *apple.AccountSession) SessionInfo {
 
 func (s *Service) GetAccountSession(ctx context.Context, id int64) (SessionInfo, error) {
 	session, err := s.readAccountManagementSession(ctx, id)
+	return s.accountSessionHealth(session, err)
+}
+
+func (s *Service) accountSessionHealth(session *apple.AccountSession, err error) (SessionInfo, error) {
 	if errors.Is(err, store.ErrNotFound) {
 		return SessionInfo{Status: StatusLoginRequired, Health: "login_required"}, nil
 	}

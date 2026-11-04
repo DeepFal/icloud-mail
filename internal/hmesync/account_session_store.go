@@ -37,30 +37,35 @@ func (s *Service) attachManagementForWebLogin(ctx context.Context, id int64, web
 // Older installations kept management cookies inside the Web envelope.
 // Prefer the newest matching checkpoint without requiring a working Web login.
 func (s *Service) readAccountManagementSession(ctx context.Context, id int64) (*apple.AccountSession, error) {
+	account, accountErr := domain.AppleWebSession{}, error(store.ErrNotFound)
+	if repo, ok := s.repo.(accountSessionRepository); ok {
+		account, accountErr = repo.GetAppleAccountSession(ctx, id)
+	}
+	web, webErr := s.repo.GetAppleWebSession(ctx, id)
+	return accountManagementSession(account, accountErr, web, webErr, s.decryptSession)
+}
+
+func accountManagementSession(account domain.AppleWebSession, accountErr error, record domain.AppleWebSession, err error, decrypt func(domain.AppleWebSession) (apple.Session, error)) (*apple.AccountSession, error) {
 	var managed *apple.AccountSession
 	var current domain.AppleWebSession
-	if repo, ok := s.repo.(accountSessionRepository); ok {
-		record, err := repo.GetAppleAccountSession(ctx, id)
-		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			return nil, err
-		}
-		if err == nil {
-			if !record.Authenticated {
-				return nil, store.ErrNotFound
-			}
-			envelope, err := s.decryptSession(record)
-			if err != nil {
-				return nil, wrapError(CodeAccountSessionExpired, ErrSessionExpired, err)
-			}
-			managed, current = envelope.Account, record
-		}
+	if accountErr != nil && !errors.Is(accountErr, store.ErrNotFound) {
+		return nil, accountErr
 	}
-	record, err := s.repo.GetAppleWebSession(ctx, id)
+	if accountErr == nil {
+		if !account.Authenticated {
+			return nil, store.ErrNotFound
+		}
+		envelope, decodeErr := decrypt(account)
+		if decodeErr != nil {
+			return nil, wrapError(CodeAccountSessionExpired, ErrSessionExpired, decodeErr)
+		}
+		managed, current = envelope.Account, account
+	}
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
 	if err == nil {
-		web, decodeErr := s.decryptSession(record)
+		web, decodeErr := decrypt(record)
 		newer := record.UpdatedAt.After(current.UpdatedAt)
 		if managed != nil && web.Account != nil && (!managed.UpdatedAt.IsZero() || !web.Account.UpdatedAt.IsZero()) {
 			// Web mail/directory writes can carry older embedded ACC cookies.

@@ -7,7 +7,6 @@ import (
 
 	"icloud-api/internal/domain"
 	"icloud-api/internal/hmesync"
-	"icloud-api/internal/store"
 )
 
 // Apple channel health in the account list. Everything here is read from local
@@ -48,47 +47,61 @@ func appleChannelHealth(info hmesync.SessionInfo, err error) string {
 	}
 }
 
-// keepAliveRank orders automatic-login states by how much attention they need.
-var keepAliveRank = map[string]int{"idle": 1, "authenticated": 2, "logging_in": 3, "waiting_code": 3, "retry_wait": 4, "needs_action": 5}
+var errAccountHealthUnavailable = errors.New("account health unavailable")
 
-func (s *Server) adminAPIAppleHealth(ctx context.Context, account domain.Account) *adminAPIAccountAppleDTO {
-	if s.hmeSync == nil || !account.Enabled || domain.NormalizeMailboxType(account.MailboxType) == domain.MailboxTypeCustom {
-		return nil
-	}
-	web, webErr := s.hmeSync.GetSession(ctx, account.ID)
-	dto := &adminAPIAccountAppleDTO{Web: appleChannelHealth(web, webErr), Account: appleHealthUnknown, KeepAlive: "disabled"}
-	if reader, ok := s.hmeSync.(accountSessionReader); ok {
-		info, err := reader.GetAccountSession(ctx, account.ID)
-		dto.Account = appleChannelHealth(info, err)
-	}
-	dto.KeepAlive = s.adminAPIKeepAliveStatus(ctx, account.ID)
-	var until time.Time
-	for _, channel := range []string{domain.AutoLoginChannelAppleAccount, domain.AutoLoginChannelICloudWeb} {
-		if paused, err := s.store.AppleCreationChannelPausedUntil(ctx, account.ID, channel); err == nil && paused.After(until) {
-			until = paused
-		}
-	}
-	if until.After(time.Now()) {
-		dto.CreationCooldownUntil = adminAPIOptionalTime(&until)
-	}
-	dto.NeedsAttention = dto.Web == appleHealthExpired || dto.Account == appleHealthExpired || dto.KeepAlive == "needs_action"
-	return dto
+type sessionHealthReader interface {
+	GetSessionHealth(context.Context, []int64) (map[int64]hmesync.SessionHealth, error)
 }
 
-func (s *Server) adminAPIKeepAliveStatus(ctx context.Context, accountID int64) string {
-	config, err := s.store.GetAccountAutoLoginConfig(ctx, accountID)
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return appleHealthUnknown
+func (s *Server) adminAPIAppleHealth(ctx context.Context, accounts []domain.Account) map[int64]*adminAPIAccountAppleDTO {
+	result := make(map[int64]*adminAPIAccountAppleDTO)
+	if s.hmeSync == nil {
+		return result
 	}
-	if !config.Enabled {
-		return "disabled"
-	}
-	status := "idle"
-	for _, channel := range []string{domain.AutoLoginChannelAppleAccount, domain.AutoLoginChannelICloudWeb} {
-		state, err := s.store.GetAccountAutoLoginState(ctx, accountID, channel)
-		if err == nil && keepAliveRank[state.Status] > keepAliveRank[status] {
-			status = state.Status
+	ids := make([]int64, 0, len(accounts))
+	for _, account := range accounts {
+		if account.Enabled && domain.NormalizeMailboxType(account.MailboxType) != domain.MailboxTypeCustom {
+			ids = append(ids, account.ID)
 		}
 	}
-	return status
+	if len(ids) == 0 {
+		return result
+	}
+	local, _ := s.store.ListAccountAppleHealth(ctx, ids)
+	sessions := make(map[int64]hmesync.SessionHealth, len(ids))
+	if reader, ok := s.hmeSync.(sessionHealthReader); ok {
+		var err error
+		sessions, err = reader.GetSessionHealth(ctx, ids)
+		if err != nil {
+			sessions = make(map[int64]hmesync.SessionHealth, len(ids))
+			for _, id := range ids {
+				sessions[id] = hmesync.SessionHealth{WebErr: err, AccountErr: err}
+			}
+		}
+	} else {
+		// Preserve compatibility with service adapters using the original interface.
+		for _, id := range ids {
+			web, webErr := s.hmeSync.GetSession(ctx, id)
+			info := hmesync.SessionHealth{Web: web, WebErr: webErr}
+			if reader, ok := s.hmeSync.(accountSessionReader); ok {
+				info.Account, info.AccountErr = reader.GetAccountSession(ctx, id)
+			} else {
+				info.AccountErr = errAccountHealthUnavailable
+			}
+			sessions[id] = info
+		}
+	}
+	now := time.Now()
+	for _, id := range ids {
+		info := sessions[id]
+		dto := &adminAPIAccountAppleDTO{Web: appleChannelHealth(info.Web, info.WebErr), Account: appleChannelHealth(info.Account, info.AccountErr)}
+		state := local[id]
+		dto.KeepAlive = state.KeepAliveStatus
+		if state.CreationCooldownUntil.After(now) {
+			dto.CreationCooldownUntil = adminAPIOptionalTime(&state.CreationCooldownUntil)
+		}
+		dto.NeedsAttention = dto.Web == appleHealthExpired || dto.Account == appleHealthExpired || dto.KeepAlive == "needs_action"
+		result[id] = dto
+	}
+	return result
 }

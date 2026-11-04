@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 
@@ -14,6 +15,53 @@ import (
 type accountHealthFake struct {
 	fakeHMESyncService
 	web, account hmesync.SessionInfo
+}
+
+type batchAccountHealthFake struct {
+	accountHealthFake
+	batches, singleReads int
+	ids                  []int64
+}
+
+func (f *batchAccountHealthFake) GetSession(ctx context.Context, id int64) (hmesync.SessionInfo, error) {
+	f.singleReads++
+	return f.accountHealthFake.GetSession(ctx, id)
+}
+func (f *batchAccountHealthFake) GetAccountSession(ctx context.Context, id int64) (hmesync.SessionInfo, error) {
+	f.singleReads++
+	return f.accountHealthFake.GetAccountSession(ctx, id)
+}
+func (f *batchAccountHealthFake) GetSessionHealth(_ context.Context, ids []int64) (map[int64]hmesync.SessionHealth, error) {
+	f.batches++
+	f.ids = append([]int64(nil), ids...)
+	result := make(map[int64]hmesync.SessionHealth, len(ids))
+	for _, id := range ids {
+		result[id] = hmesync.SessionHealth{Web: f.web, Account: f.account}
+	}
+	return result, nil
+}
+
+func TestAdminAPIAccountListBatchHealthPreservesJSON(t *testing.T) {
+	env := newAdminAPITestEnv(t)
+	cookie, _, _ := env.createSession(t, "account-health-batch-admin", "unused-password")
+	for _, email := range []string{"batch-one@icloud.com", "batch-two@icloud.com", "batch-three@icloud.com"} {
+		adminAPITestCreateAccount(t, env, email)
+	}
+	single := accountHealthFake{
+		web:     hmesync.SessionInfo{Status: hmesync.StatusExpired},
+		account: hmesync.SessionInfo{Status: hmesync.StatusExpired, Health: "retry_wait"},
+	}
+	env.server.SetHMESyncService(&single)
+	want := accountHealthList(t, env, cookie)
+	batch := &batchAccountHealthFake{accountHealthFake: single}
+	env.server.SetHMESyncService(batch)
+	got := accountHealthList(t, env, cookie)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("batch JSON = %#v, single JSON = %#v", got, want)
+	}
+	if batch.batches != 1 || batch.singleReads != 0 || len(batch.ids) != 3 {
+		t.Fatalf("batch calls=%d, single reads=%d, IDs=%v", batch.batches, batch.singleReads, batch.ids)
+	}
 }
 
 func (f *accountHealthFake) GetSession(context.Context, int64) (hmesync.SessionInfo, error) {

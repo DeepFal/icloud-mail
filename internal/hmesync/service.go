@@ -286,13 +286,17 @@ func (s *Service) GetSession(ctx context.Context, accountID int64) (SessionInfo,
 		return SessionInfo{}, errors.New("account ID must be positive")
 	}
 	record, err := s.repo.GetAppleWebSession(ctx, accountID)
+	return s.webSessionInfo(record, err, s.decryptSession)
+}
+
+func (s *Service) webSessionInfo(record domain.AppleWebSession, err error, decrypt func(domain.AppleWebSession) (apple.Session, error)) (SessionInfo, error) {
 	if errors.Is(err, store.ErrNotFound) {
 		return SessionInfo{Status: StatusLoginRequired}, nil
 	}
 	if err != nil {
 		return SessionInfo{}, err
 	}
-	session, err := s.decryptSession(record)
+	session, err := decrypt(record)
 	if err != nil || !record.Authenticated {
 		return SessionInfo{
 			Status:  StatusExpired,
