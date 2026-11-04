@@ -76,6 +76,13 @@ export function measureFrameHeight(doc) {
   return height > 0 ? height + scrollbar : 0;
 }
 
+// <details> toggle does not bubble. Listen from the parent in capture phase;
+// changing the iframe height itself cannot trigger this, so there is no resize loop.
+export function observeFrameContent(doc, onChange) {
+  doc?.addEventListener("toggle", onChange, true);
+  return () => doc?.removeEventListener("toggle", onChange, true);
+}
+
 export function readMailPalette(root = globalThis.document?.documentElement) {
   if (!root || typeof getComputedStyle !== "function") return LIGHT;
   const style = getComputedStyle(root), read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;

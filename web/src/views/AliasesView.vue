@@ -645,6 +645,16 @@ function readAliasFiltersFromRoute() {
 }
 readAliasFiltersFromRoute();
 watch(
+  () => [route.query.q, route.query.account, route.query.group, route.query.mail],
+  () => {
+    if (route.name !== "aliases") return;
+    const previous = [appliedAliasQuery.value, selectedAccountId.value, appliedGroupId.value, selectedLatestMailFilter.value];
+    readAliasFiltersFromRoute();
+    const current = [appliedAliasQuery.value, selectedAccountId.value, appliedGroupId.value, selectedLatestMailFilter.value];
+    if (current.some((value, index) => value !== previous[index])) reloadAliasesForFilters();
+  },
+);
+watch(
   () => [appliedAliasQuery.value, selectedAccountId.value, appliedGroupId.value, selectedLatestMailFilter.value],
   ([q, account, group, mail]) => {
     if (route.name !== "aliases") return;

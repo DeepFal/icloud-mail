@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { hasBlockedImages, isDesignedMail, mailFrameDocument, mailRenderMode, measureFrameHeight } from "../src/workspace/mail-frame.js";
+import { hasBlockedImages, isDesignedMail, mailFrameDocument, mailRenderMode, measureFrameHeight, observeFrameContent } from "../src/workspace/mail-frame.js";
 
 const dark = { text: "#eceeef", bg: "#202124", link: "#8eb9ff", border: "#36383c", muted: "#a1a6ae" };
 
@@ -74,7 +74,7 @@ test("the inbox frame never runs scripts and is sized by the parent inside one s
   assert.doesNotMatch(frames[0], /:sandbox/, "the sandbox value is static");
   assert.doesNotMatch(view, /allow-scripts|allow-forms|allow-modals|allow-top-navigation/);
   assert.match(frames[0], /:srcdoc="frameDocument"/);
-  assert.match(frames[0], /@load="fitFrame"/);
+  assert.match(frames[0], /@load="frameLoaded"/);
   assert.match(frames[0], /height: `\$\{frameHeight\}px`/);
   assert.doesNotMatch(view, /v-html/);
   assert.doesNotMatch(css, /height:\s*450px|background:\s*#fff\b|filter:\s*invert/);
@@ -104,4 +104,27 @@ test("blocked remote images become alt-text boxes, never an <img> Chrome draws a
     '<span data-blocked style="width:50%;display: block; height: auto">半宽</span>' +
     '<img src="data:image/png;base64,AAAA" alt="内嵌">');
   assert.match(mailFrameDocument(""), /\[data-blocked\]\{display:inline-block;[^}]*outline:1px dashed/);
+});
+
+
+test("details toggles remeasure expanded and collapsed content and detach on cleanup", () => {
+  let contentHeight = 63, measured = 0, listener;
+  const events = [];
+  const doc = {
+    body: { childNodes: [1] },
+    documentElement: { getBoundingClientRect: () => ({ height: contentHeight }), scrollWidth: 600, clientWidth: 600 },
+    addEventListener(type, callback, capture) { events.push(["add", type, capture]); listener = callback; },
+    removeEventListener(type, callback, capture) { events.push(["remove", type, capture]); assert.equal(callback, listener); listener = undefined; },
+  };
+  const stop = observeFrameContent(doc, () => { measured = measureFrameHeight(doc); });
+  contentHeight = 1563;
+  listener();
+  assert.equal(measured, 1563);
+  contentHeight = 63;
+  listener();
+  assert.equal(measured, 63);
+  stop();
+  assert.equal(listener, undefined);
+  assert.deepEqual(events, [["add", "toggle", true], ["remove", "toggle", true]]);
+  assert.doesNotThrow(() => observeFrameContent(null, () => {})());
 });

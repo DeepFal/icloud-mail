@@ -63,7 +63,7 @@
 @media (max-width: 1100px) {
   .registry-workspace { grid-template-columns: 180px minmax(0, 1fr); }
   .registry-table th:nth-child(3), .registry-table td:nth-child(3) { display: none; }
-  .registry-filter-select { display: none; }
+  .registry-filters { flex-wrap: wrap; padding-block: 8px; }
   .service-description { display: none; }
 }
 @media (max-width: 740px) {
@@ -74,8 +74,7 @@
   .service-directory-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 200px; }
   .service-directory-item { width: auto; max-width: 100%; height: 44px; }
   .service-detail-heading { flex-wrap: wrap; padding-block: 8px; }
-  .registry-filters { flex-wrap: wrap; padding-block: 8px; }
-  .registry-query, .registry-status, .registry-filter-select { display: flex; flex: 1 1 100%; width: 100%; }
+  .registry-query, .registry-status, .registry-filter-select { flex: 1 1 100%; width: 100%; }
   .registry-table-wrap { overflow: visible; }
   .registry-table { display: none; }
   .registry-mobile-records { display: block; }

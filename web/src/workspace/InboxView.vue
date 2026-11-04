@@ -12,7 +12,7 @@ import { formatMailDate } from "./mail-format.js";
 import { setUnreadBadge } from "../stores/page.js";
 import { useTheme } from "../stores/theme.js";
 import { copyText } from "../utils/clipboard.js";
-import { hasBlockedImages, isDesignedMail, mailFrameDocument, mailRenderMode, measureFrameHeight, readMailPalette } from "./mail-frame.js";
+import { hasBlockedImages, isDesignedMail, mailFrameDocument, mailRenderMode, measureFrameHeight, observeFrameContent, readMailPalette } from "./mail-frame.js";
 import { messageKey, useInboxMessages, watchInboxFilters } from "./inbox-state.js";
 import { useInboxReceive } from "./inbox-receive.js";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
@@ -124,10 +124,12 @@ const frameDocument = computed(() => detail.value?.html ? mailFrameDocument(deta
 const blockedImages = computed(() => viewMode.value === "html" && hasBlockedImages(detail.value?.html));
 // The frame is same-origin but script-free (scripts are never enabled in its sandbox; popups only so links open in a new tab): the parent sizes it to its content so the reading pane is the only scroller.
 const mailFrame = ref(null), readerScroll = ref(null), frameHeight = ref(160);
-let frameWidth = 0;
-function fitFrame() { const height = measureFrameHeight(mailFrame.value?.contentDocument); if (height) frameHeight.value = height; }
+let frameWidth = 0, stopFrameContent = () => {};
+function fitFrame() { const height = measureFrameHeight(mailFrame.value?.contentDocument); if (height && height !== frameHeight.value) frameHeight.value = height; }
+function frameLoaded() { stopFrameContent(); stopFrameContent = observeFrameContent(mailFrame.value?.contentDocument, fitFrame); fitFrame(); }
 const frameResize = typeof ResizeObserver === "function" ? new ResizeObserver(([entry]) => { const width = Math.round(entry.contentRect.width); if (width !== frameWidth) { frameWidth = width; fitFrame(); } }) : null;
-watch(mailFrame, (frame, previous) => { if (previous) frameResize?.unobserve(previous); frameWidth = 0; if (frame) frameResize?.observe(frame); });
+watch(frameDocument, () => stopFrameContent());
+watch(mailFrame, (frame, previous) => { stopFrameContent(); if (previous) frameResize?.unobserve(previous); frameWidth = 0; if (frame) frameResize?.observe(frame); });
 watch(() => messageKey(selected.value), () => { frameHeight.value = 160; readerScroll.value?.scrollTo({ top: 0 }); });
 // List column width: dragged or arrow keys on the divider, remembered per browser.
 const LIST_WIDTH_KEY = "icloud-inbox-list-width";
@@ -164,7 +166,7 @@ watch(unreadCount, (count) => setUnreadBadge(count), { immediate: true });
 watch(() => route.query.account_id, (value) => { filters.accountId = String(value || ""); });
 watch(() => route.query.alias_id, (value) => { filters.aliasId = String(value || ""); });
 onMounted(() => { loadMeta(); loadList(); liveRefresh.start({ immediate: false }); window.addEventListener("icloud:mailbox-profile-updated", profileEvent); window.addEventListener("keydown", shortcut); });
-onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); window.removeEventListener("keydown", shortcut); frameResize?.disconnect(); disposed = true; metaVersion++; metaController?.abort(); stopFilterWatch(); liveRefresh.stop(); inbox.dispose(); });
+onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:mailbox-profile-updated", profileEvent); window.removeEventListener("keydown", shortcut); frameResize?.disconnect(); stopFrameContent(); disposed = true; metaVersion++; metaController?.abort(); stopFilterWatch(); liveRefresh.stop(); inbox.dispose(); });
 </script>
 
 <template>
@@ -268,7 +270,7 @@ onBeforeUnmount(() => { setUnreadBadge(0); window.removeEventListener("icloud:ma
             <div v-if="detailLoading" class="state" role="status">正在读取正文…</div>
             <div v-else-if="detailError" class="state error" role="alert"><p>{{ detailError }}</p><div class="state-actions"><button class="bar-button" @click="retryDetail">重新读取</button><a v-if="sourcePath" :href="sourcePath" download>下载原始邮件</a></div></div>
             <p v-else-if="detail && !detail.contentAvailable" class="state warning">{{ contentStatus(detail.message.contentState) }}。标题与时间仍然保留。</p>
-            <div v-else-if="detail && viewMode === 'html' && detail.html" :class="['html-frame', { 'is-paper': renderMode === 'paper' }]"><iframe ref="mailFrame" class="html-body" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" scrolling="no" :srcdoc="frameDocument" :style="{ height: `${frameHeight}px` }" title="邮件正文" @load="fitFrame"></iframe></div>
+            <div v-else-if="detail && viewMode === 'html' && detail.html" :class="['html-frame', { 'is-paper': renderMode === 'paper' }]"><iframe ref="mailFrame" class="html-body" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" scrolling="no" :srcdoc="frameDocument" :style="{ height: `${frameHeight}px` }" title="邮件正文" @load="frameLoaded"></iframe></div>
             <article v-else-if="detail" class="text-body">{{ detail.text || '这封邮件没有文字正文。' }}</article>
           </div>
         </div>
