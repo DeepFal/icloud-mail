@@ -8,6 +8,11 @@ const props = defineProps({ accountId: { type: [String, Number], required: true 
 const auth = useAuth();
 const loading = ref(false), saving = ref(false), jobBusy = ref(false), error = ref("");
 const job = ref(null), backgroundEnabled = ref(false), historyDays = ref(7), fetchDays = ref(7);
+const savedPreferences = ref(null);
+const preferencesDirty = computed(() => savedPreferences.value !== null && (
+  backgroundEnabled.value !== savedPreferences.value.background_enabled ||
+  Number(historyDays.value) !== savedPreferences.value.history_days
+));
 let generation = 0, controller, timer, disposed = false, jobLoading = false;
 const statuses = { queued: "排队中", running: "补取中", waiting: "等待重试", paused: "已暂停", completed: "已完成", failed: "需要处理", cancelled: "已取消" };
 const active = computed(() => job.value && ["queued", "running", "waiting", "paused"].includes(job.value.status));
@@ -25,14 +30,15 @@ async function loadJob() {
 async function load() {
   const current = ++generation; stopPoll(); controller?.abort(); controller = new AbortController();
   jobLoading = false; loading.value = true; error.value = ""; job.value = null;
-  try { const [preferences, result] = await Promise.all([apiRequest(`${path()}/mail-preferences`, { signal: controller.signal }), apiRequest(`${path()}/history-jobs`, { signal: controller.signal })]); if (disposed || current !== generation) return; backgroundEnabled.value = preferences.background_enabled; historyDays.value = preferences.history_days; fetchDays.value = preferences.history_days; job.value = result.job; }
+  try { const [preferences, result] = await Promise.all([apiRequest(`${path()}/mail-preferences`, { signal: controller.signal }), apiRequest(`${path()}/history-jobs`, { signal: controller.signal })]); if (disposed || current !== generation) return; backgroundEnabled.value = preferences.background_enabled; historyDays.value = preferences.history_days; fetchDays.value = preferences.history_days; savedPreferences.value = { background_enabled: preferences.background_enabled, history_days: Number(preferences.history_days) }; job.value = result.job; }
   catch (cause) { if (cause.name !== "AbortError" && current === generation && !disposed) error.value = cause.message || "设置加载失败"; }
   finally { if (current === generation && !disposed) { loading.value = false; schedule(); } }
 }
 async function save() {
-  if (loading.value || saving.value) return; const current = generation; saving.value = true;
-  try { await apiRequest(`${path()}/mail-preferences`, { method: "PUT", body: { background_enabled: backgroundEnabled.value, history_days: Number(historyDays.value) }, csrfToken: auth.state.csrfToken, signal: controller.signal }); if (current === generation && !disposed) ElMessage.success("收件设置已保存"); }
-  catch (cause) { if (cause.name !== "AbortError") ElMessage.error(cause.message || "设置保存失败"); }
+  if (loading.value || saving.value || !preferencesDirty.value) return; const current = generation; saving.value = true;
+  const submitted = { background_enabled: backgroundEnabled.value, history_days: Number(historyDays.value) };
+  try { await apiRequest(`${path()}/mail-preferences`, { method: "PUT", body: submitted, csrfToken: auth.state.csrfToken, signal: controller.signal }); if (current === generation && !disposed) { savedPreferences.value = submitted; ElMessage.success("收件设置已保存"); } }
+  catch (cause) { if (cause.name !== "AbortError" && current === generation && !disposed) ElMessage.error(cause.message || "设置保存失败"); }
   finally { if (current === generation) saving.value = false; }
 }
 async function start() {
@@ -50,7 +56,7 @@ async function act(action) {
   finally { if (current === generation) jobBusy.value = false; }
 }
 function visibility() { if (!document.hidden && navigator.onLine) loadJob(); schedule(); }
-watch(() => props.accountId, () => { saving.value = false; jobBusy.value = false; load(); }, { immediate: true });
+watch(() => props.accountId, () => { savedPreferences.value = null; saving.value = false; jobBusy.value = false; load(); }, { immediate: true });
 document.addEventListener("visibilitychange", visibility); window.addEventListener("online", visibility); window.addEventListener("offline", schedule);
 onBeforeUnmount(() => { disposed = true; generation++; controller?.abort(); stopPoll(); document.removeEventListener("visibilitychange", visibility); window.removeEventListener("online", visibility); window.removeEventListener("offline", schedule); });
 </script>
@@ -66,7 +72,7 @@ onBeforeUnmount(() => { disposed = true; generation++; controller?.abort(); stop
         <el-select v-model="historyDays" class="setting-row__days" aria-label="默认补取范围" :disabled="loading || saving">
           <el-option v-for="days in [1, 7, 30, 90, 365, 3650]" :key="days" :label="`最近 ${days} 天`" :value="days" />
         </el-select>
-        <el-button :loading="saving" :disabled="loading" @click="save">{{ saving ? "保存中…" : "保存设置" }}</el-button>
+        <el-button v-if="preferencesDirty || saving" :loading="saving" :disabled="loading || !preferencesDirty" @click="save">{{ saving ? "保存中…" : "保存设置" }}</el-button>
       </div>
     </div>
     <div class="setting-row">

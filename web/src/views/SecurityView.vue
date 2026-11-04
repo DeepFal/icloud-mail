@@ -56,7 +56,7 @@
           />
         </el-form-item>
 
-        <el-form-item class="security-form__submit">
+        <el-form-item v-if="hasPasswordInput || submitting" class="security-form__submit">
           <el-button
             native-type="submit"
             type="primary"
@@ -94,6 +94,9 @@ const form = reactive({
 });
 
 const newPasswordBytes = computed(() => utf8Length(form.newPassword));
+const hasPasswordInput = computed(() => Boolean(
+  form.currentPassword || form.newPassword || form.confirmPassword,
+));
 
 function validateNewPassword(_, value, callback) {
   const length = utf8Length(value);

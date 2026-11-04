@@ -80,7 +80,7 @@
               <AppleConnectionTags :account="row" />
             </template>
             <template v-else-if="column.key === 'attention'">
-              <AttentionReasons :account="row" />
+              <AttentionReasons :account="row" compact />
             </template>
             <template v-else-if="column.key === 'aliasCount'">
               <span class="pg-num">{{ row.aliasCount }}</span>

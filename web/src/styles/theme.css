@@ -90,6 +90,9 @@ html.dark {
   --el-component-size-large: 32px;
   --el-border-radius-base: var(--radius-control);
   --el-border-radius-small: 4px;
+  --el-transition-duration: 180ms;
+  --el-transition-duration-fast: 120ms;
+  --el-transition-all: color 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 @media (max-width: 740px) { :root { --el-component-size: 36px; --el-component-size-large: 40px; } }
 

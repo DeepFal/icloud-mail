@@ -229,7 +229,7 @@
         </el-form-item>
       </fieldset>
 
-      <div class="pg-actions form-actions">
+      <div v-if="!isEdit || formDirty || submitting" class="pg-actions form-actions">
         <el-button
           native-type="submit"
           type="primary"
@@ -293,6 +293,8 @@ const autoLoginReady = ref(false);
 const autoLoginLoading = ref(false);
 const autoLoginLoadError = ref(false);
 const savedAutoLogin = reactive({ passwordConfigured: false, codeURLConfigured: false, channels: [] });
+const savedForm = ref(null);
+let mainFormBaseline = null;
 const loadGate = createLatestRequestGate();
 const autoLoginGate = createLatestRequestGate();
 const submitLock = createActionLock();
@@ -316,6 +318,11 @@ const form = reactive({
 
 const isEdit = computed(() => route.name === "account-edit");
 const isCustomMailbox = computed(() => form.mailboxType === "custom");
+const formDirty = computed(() => {
+  if (!isEdit.value || !savedForm.value) return false;
+  const current = formSnapshot();
+  return Object.keys(savedForm.value).some((key) => current[key] !== savedForm.value[key]);
+});
 const emailLocked = computed(() => isEdit.value && aliasCount.value > 0);
 const receiveRule = computed(() => mailboxReceiveRule(form));
 const usesGenericIMAPPassword = computed(
@@ -488,6 +495,8 @@ function resetForm() {
     autoLoginCodeURL: "",
   });
   autoLoginGate.invalidate();
+  savedForm.value = null;
+  mainFormBaseline = null;
   autoLoginReady.value = !isEdit.value;
   autoLoginLoading.value = false;
   autoLoginLoadError.value = false;
@@ -497,6 +506,25 @@ function resetForm() {
   loadError.value = null;
   submitError.value = null;
   formRef.value?.clearValidate();
+}
+
+function formSnapshot() {
+  const imapEndpoint = normalizeIMAPEndpoint(form.imapHost, form.imapPort);
+  return {
+    name: form.name,
+    email: form.email,
+    mailboxType: form.mailboxType,
+    emailSuffix: form.emailSuffix,
+    imapHost: imapEndpoint.host,
+    imapPort: imapEndpoint.port,
+    imapUsername: form.imapUsername,
+    imapPassword: form.imapPassword,
+    enabled: Boolean(form.enabled),
+    autoLoginEnabled: Boolean(form.autoLoginEnabled),
+    autoLoginRegion: form.autoLoginRegion,
+    autoLoginPassword: form.autoLoginPassword,
+    autoLoginCodeURL: form.autoLoginCodeURL,
+  };
 }
 
 async function loadAutoLogin() {
@@ -512,6 +540,13 @@ async function loadAutoLogin() {
     Object.assign(savedAutoLogin, config);
     form.autoLoginEnabled = config.enabled;
     form.autoLoginRegion = config.region;
+    if (mainFormBaseline) {
+      savedForm.value = {
+        ...mainFormBaseline,
+        autoLoginEnabled: Boolean(config.enabled),
+        autoLoginRegion: config.region,
+      };
+    }
     autoLoginReady.value = true;
   } catch {
     if (!autoLoginGate.isCurrent(ticket, routeKey())) return;
@@ -525,6 +560,9 @@ async function loadAccount() {
   if (!isEdit.value) return;
   const accountId = String(route.params.id || "");
   const ticket = loadGate.begin(routeKey());
+  autoLoginGate.invalidate();
+  savedForm.value = null;
+  mainFormBaseline = null;
   loading.value = true;
   loadError.value = null;
   try {
@@ -547,7 +585,9 @@ async function loadAccount() {
     });
     storedEnabled.value = Boolean(account.enabled);
     aliasCount.value = account.aliasCount;
+    mainFormBaseline = formSnapshot();
     if (!isCustomMailbox.value) loadAutoLogin();
+    else savedForm.value = formSnapshot();
   } catch (error) {
     if (!loadGate.isCurrent(ticket, routeKey())) return;
     loadError.value = error;

@@ -912,7 +912,7 @@ html .el-button {
   font-size: 13px;
   padding: 0 12px;
   border-radius: var(--radius-control);
-  transition: background-color 150ms, border-color 150ms;
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
 }
 html .el-button--small { height: var(--el-component-size-small); padding: 0 8px; font-size: 12px; }
 html .el-button--large { height: var(--el-component-size-large); }
@@ -1011,7 +1011,7 @@ html .el-select__wrapper { min-height: var(--el-component-size); font-size: 13px
 .el-popper.is-light { border-radius: 12px; border-color: var(--border); }
 .el-dropdown-menu { padding: 6px; }
 .el-dropdown-menu__item { border-radius: 5px; }
-.el-switch.el-switch { --el-switch-on-color: #34c759; }
+.el-switch.el-switch { --el-switch-on-color: var(--success); }
 
 html.dark .el-button:is(.el-button--danger, .el-button--success, .el-button--warning, .el-button--info):not(.is-plain, .is-text, .is-link, .is-disabled) {
   color: var(--on-primary);
@@ -1226,6 +1226,13 @@ html.dark .el-pagination.is-background .el-pager li.is-active {
     width: 100%;
   }
 }
+
+/* Keep library control transitions explicit and within the same short cadence. */
+html .el-switch__label { transition: color 180ms ease; }
+html .el-switch__core .el-switch__inner { transition: padding 180ms ease; }
+html .el-switch__core .el-switch__action { transition: left 180ms ease, color 180ms ease, background-color 180ms ease; }
+.el-zoom-in-top-enter-active, .el-zoom-in-top-leave-active,
+.el-zoom-in-bottom-enter-active, .el-zoom-in-bottom-leave-active { transition: opacity 180ms ease, transform 180ms ease; }
 
 @media (prefers-reduced-motion: reduce) {
   *,
