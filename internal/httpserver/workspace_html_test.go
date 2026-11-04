@@ -1,10 +1,71 @@
 package httpserver
 
 import (
+	"net/url"
 	"os"
 	"strings"
 	"testing"
+
+	"golang.org/x/net/html"
 )
+
+func TestSanitizeWorkspaceHTMLChecksEveryURLAttribute(t *testing.T) {
+	const png = "data:image/png;base64,iVBORw0KGgo="
+	const svg = "data:image/svg+xml;base64,PHN2Zy8+"
+	for _, element := range []string{"a", "area"} {
+		for _, test := range []struct {
+			name string
+			urls []string
+			want []string
+		}{
+			{"duplicate data", []string{png, png}, nil},
+			{"data first", []string{png, "https://example.test", png}, []string{"https://example.test"}},
+			{"data last", []string{"http://example.test", png, png}, []string{"http://example.test"}},
+			{"alternating", []string{png, "http://example.test", png, "https://example.test", png}, []string{"http://example.test", "https://example.test"}},
+			{"safe", []string{"http://example.test", "https://example.test", "mailto:hi@example.test"}, []string{"http://example.test", "https://example.test", "mailto:hi@example.test"}},
+			{"svg", []string{svg, svg}, nil},
+			{"unsafe", []string{"javascript:alert(1)", "JaVaScRiPt:alert(1)", " java\t\nscript:alert(1)", "&#x20;java&#x73;cript&#58;alert(1)", "vbscript:x", "file:///etc/passwd"}, nil},
+		} {
+			t.Run(element+"/"+test.name, func(t *testing.T) {
+				in := "<" + element
+				for _, value := range test.urls {
+					in += ` href="` + value + `"`
+				}
+				out := sanitizeWorkspaceHTML(in + ` alt="link">link</` + element + `>`)
+				var got []string
+				z := html.NewTokenizer(strings.NewReader(out))
+				for kind := z.Next(); kind != html.ErrorToken; kind = z.Next() {
+					if kind != html.StartTagToken && kind != html.SelfClosingTagToken {
+						continue
+					}
+					for _, attr := range z.Token().Attr {
+						if attr.Key == "href" {
+							u, err := url.Parse(attr.Val)
+							if err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "mailto") {
+								t.Fatalf("unsafe href %q in %s", attr.Val, out)
+							}
+							got = append(got, attr.Val)
+						}
+					}
+				}
+				if strings.Join(got, "|") != strings.Join(test.want, "|") {
+					t.Fatalf("hrefs = %v, want %v: %s", got, test.want, out)
+				}
+			})
+		}
+	}
+	for _, mime := range []string{"png", "jpeg", "gif", "webp", "svg+xml"} {
+		out := sanitizeWorkspaceHTML(`<img src="data:image/` + mime + `;base64,PHN2Zy8+" alt="inline">`)
+		if strings.Contains(out, "src=") != (mime != "svg+xml") {
+			t.Fatalf("unexpected image policy for %s: %s", mime, out)
+		}
+	}
+	// Preserve the existing CID fallback: retain alt text without loading a resource.
+	out := sanitizeWorkspaceHTML(`<img src="cid:missing" alt="cid fallback"><blockquote cite="` + png + `">quote</blockquote>`)
+	if strings.Contains(out, "cid:missing") || strings.Contains(out, "data:") || !strings.Contains(out, `alt="cid fallback"`) {
+		t.Fatalf("unexpected resource URL: %s", out)
+	}
+}
 
 func TestSanitizeWorkspaceHTMLDropsExecutableMarkup(t *testing.T) {
 	in := `<p onclick="x">保留<script>alert(1)</script><a href="java&#x73;cript:alert(1)" style="background:url(javascript:x)">链接</a><img alt="图片" src="//evil.test/x" srcset="x 1x" onerror="alert(2)"></p>` +

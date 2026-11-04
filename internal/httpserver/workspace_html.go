@@ -19,12 +19,6 @@ import (
 // mailto URLs and open in a new tab without opener or referrer.
 var workspaceHTMLPolicy = newWorkspaceHTMLPolicy()
 
-// AllowDataURIImages registers data: for every URL attribute, so links would
-// accept data:image/… too; bluemonday cannot scope a scheme to <img>, so the
-// href is removed from its output, where attribute values are escaped and
-// double-quoted.
-var workspaceDataLink = regexp.MustCompile(`(<(?:a|area)\b[^>]*?)\s+href="data:[^"]*"`)
-
 var workspaceHTMLColor = regexp.MustCompile(`^(#[0-9a-fA-F]{3,8}|[0-9a-fA-F]{6}|[a-zA-Z]{3,20})$`)
 
 var workspaceEmailStyles = []string{
@@ -65,7 +59,44 @@ func newWorkspaceHTMLPolicy() *bluemonday.Policy {
 }
 
 func sanitizeWorkspaceHTML(src string) string {
-	return workspaceDataLink.ReplaceAllString(workspaceHTMLPolicy.Sanitize(src), "$1")
+	// In bluemonday v1.0.27 schemes are global, attribute rules are additive,
+	// and AllowDataURIImages also permits SVG. Keep its base64 validation, then
+	// narrow every URL attribute structurally, including duplicate attributes.
+	tokenizer := htmlnode.NewTokenizer(strings.NewReader(workspaceHTMLPolicy.Sanitize(src)))
+	var out strings.Builder
+	for {
+		kind := tokenizer.Next()
+		if kind == htmlnode.ErrorToken {
+			return out.String()
+		}
+		if kind != htmlnode.StartTagToken && kind != htmlnode.SelfClosingTagToken {
+			out.Write(tokenizer.Raw())
+			continue
+		}
+		token := tokenizer.Token()
+		attrs := token.Attr[:0]
+		for _, attr := range token.Attr {
+			switch attr.Key {
+			case "href", "src", "cite", "longdesc": // URL attributes retained by UGCPolicy
+			default:
+				attrs = append(attrs, attr)
+				continue
+			}
+			u, err := url.Parse(strings.TrimSpace(attr.Val))
+			if attr.Key == "href" && (err != nil || (u.Scheme != "http" && u.Scheme != "https" && u.Scheme != "mailto")) {
+				continue
+			}
+			if err == nil && u.Scheme == "data" {
+				mime, _, _ := strings.Cut(u.Opaque, ";")
+				if token.Data != "img" || attr.Key != "src" || (mime != "image/png" && mime != "image/jpeg" && mime != "image/gif" && mime != "image/webp") {
+					continue
+				}
+			}
+			attrs = append(attrs, attr)
+		}
+		token.Attr = attrs
+		out.WriteString(token.String())
+	}
 }
 
 type workspaceLink struct {
