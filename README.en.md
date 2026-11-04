@@ -36,7 +36,7 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build --wait
 docker compose -f compose.yaml -f compose.build.yaml ps
 ```
 
-Once the target version is published to GHCR, you can use `ghcr.io/deepfal/icloud-mail` and `ghcr.io/deepfal/icloud-mail-postgres`: set `ICLOUD_MAIL_VERSION=v0.2.10` in `.env`, then run `docker compose pull` and `docker compose up -d --wait`. Both images use the same version. Use the source build above until the first image publication completes. OCI labels record the full commit, version, and source repository; see [DELIVERY.md](DELIVERY.md#ghcr-镜像) for verification.
+Once the target version is published to GHCR, you can use `ghcr.io/deepfal/icloud-mail` and `ghcr.io/deepfal/icloud-mail-postgres`: set `ICLOUD_MAIL_VERSION=v0.2.11` in `.env`, then run `docker compose pull` and `docker compose up -d --wait`. Both images use the same version. Use the source build above until the first image publication completes. OCI labels record the full commit, version, and source repository; see [DELIVERY.md](DELIVERY.md#ghcr-镜像) for verification.
 
 With the example configuration, the dashboard is at `http://127.0.0.1:8788/admin/` and the username is `admin`. The generated management path and password are stored in the container's keys volume:
 

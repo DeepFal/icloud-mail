@@ -1,6 +1,6 @@
 # 安装与交付
 
-本项目由 DeepFal 维护，源码仓库为 <https://github.com/DeepFal/icloud-mail>。当前源码元数据版本为 `0.2.10`；GHCR 镜像由推送对应 `v*` tag 后的工作流生成，首次发布完成前请使用源码构建。本文件中的配置不表示镜像、正式 Release 或离线包已经发布。来源与许可见 [NOTICE.md](NOTICE.md) 和 [LICENSE](LICENSE)。
+本项目由 DeepFal 维护，源码仓库为 <https://github.com/DeepFal/icloud-mail>。当前源码元数据版本为 `0.2.11`；GHCR 镜像由推送对应 `v*` tag 后的工作流生成，首次发布完成前请使用源码构建。本文件中的配置不表示镜像、正式 Release 或离线包已经发布。来源与许可见 [NOTICE.md](NOTICE.md) 和 [LICENSE](LICENSE)。
 
 ## 源码构建安装（推荐）
 
@@ -23,31 +23,31 @@ curl -fsS http://127.0.0.1:8788/healthz
 
 | Docker target | 镜像 | 版本示例 |
 | --- | --- | --- |
-| `runtime` | `ghcr.io/deepfal/icloud-mail` | `v0.2.10` |
-| `postgres-runtime` | `ghcr.io/deepfal/icloud-mail-postgres` | `v0.2.10` |
+| `runtime` | `ghcr.io/deepfal/icloud-mail` | `v0.2.11` |
+| `postgres-runtime` | `ghcr.io/deepfal/icloud-mail-postgres` | `v0.2.11` |
 
-每个镜像同时提供版本 tag、`sha-<7位commit>` 和 `latest`；`latest` 只在 tag 发布时更新，安装使用固定版本。tag 必须与源码 `VERSION` 一致，例如 `VERSION=0.2.10` 对应 `v0.2.10`。
+每个镜像同时提供版本 tag、`sha-<7位commit>` 和 `latest`；`latest` 只在 tag 发布时更新，安装使用固定版本。tag 必须与源码 `VERSION` 一致，例如 `VERSION=0.2.11` 对应 `v0.2.11`。
 
 确认目标版本的两个包均已公开后，在克隆的仓库目录中安装：
 
 ```sh
 cp -n .env.example .env
-# .env 中设置 ICLOUD_MAIL_VERSION=v0.2.10（或其他已发布版本）
+# .env 中设置 ICLOUD_MAIL_VERSION=v0.2.11（或其他已发布版本）
 docker compose pull
 docker compose up -d --wait
 docker compose ps
 ```
 
-基础、源码构建和离线编排均使用 `ICLOUD_MAIL_VERSION`，默认 `v0.2.10`；`compose.public.yaml` 继承基础镜像设置，只增加证书挂载。基础镜像安装保留 `ICLOUD_API_IMAGE` 和 `ICLOUD_API_POSTGRES_IMAGE` 作为完整镜像引用或 digest 的可选覆盖项；它们优先于版本变量。旧 `.env` 中如有 `:latest` 或其他镜像覆盖项，应移除或改为目标固定版本，否则仅修改 `ICLOUD_MAIL_VERSION` 不会生效。
+基础、源码构建和离线编排均使用 `ICLOUD_MAIL_VERSION`，默认 `v0.2.11`；`compose.public.yaml` 继承基础镜像设置，只增加证书挂载。基础镜像安装保留 `ICLOUD_API_IMAGE` 和 `ICLOUD_API_POSTGRES_IMAGE` 作为完整镜像引用或 digest 的可选覆盖项；它们优先于版本变量。旧 `.env` 中如有 `:latest` 或其他镜像覆盖项，应移除或改为目标固定版本，否则仅修改 `ICLOUD_MAIL_VERSION` 不会生效。
 
-镜像携带 `org.opencontainers.image.revision`（完整源码 commit）、`org.opencontainers.image.version`（如 `v0.2.10`）和 `org.opencontainers.image.source`（本仓库 URL）。拉取后可核对：
+镜像携带 `org.opencontainers.image.revision`（完整源码 commit）、`org.opencontainers.image.version`（如 `v0.2.11`）和 `org.opencontainers.image.source`（本仓库 URL）。拉取后可核对：
 
 ```sh
-docker image inspect ghcr.io/deepfal/icloud-mail:v0.2.10 \
+docker image inspect ghcr.io/deepfal/icloud-mail:v0.2.11 \
   --format '{{json .Config.Labels}}'
-docker image inspect ghcr.io/deepfal/icloud-mail-postgres:v0.2.10 \
+docker image inspect ghcr.io/deepfal/icloud-mail-postgres:v0.2.11 \
   --format '{{json .Config.Labels}}'
-git rev-parse 'v0.2.10^{commit}'
+git rev-parse 'v0.2.11^{commit}'
 ```
 
 两个镜像的 `revision` 应与 tag 指向的 commit 相同，`source` 应为 `https://github.com/DeepFal/icloud-mail`。
@@ -75,7 +75,7 @@ ssh -N -L 127.0.0.1:8788:127.0.0.1:8788 USER@SERVER
 
 数据库、keys、installation state 和 mail archive 应形成同一个备份点。更新前先运行 `scripts/backup-local.sh`，保留 `.env`、Compose 项目身份与已有 Docker volumes，不执行带 `-v` 的清理。备份和更新使用当前安装的同一组 Compose 文件（公网证书覆盖文件也需保留）。
 
-**镜像安装升级 = 修改 `.env` 中的版本号 + `docker compose pull` + `docker compose up -d`。** 先查看目标版本的发布说明并备份，再将 `ICLOUD_MAIL_VERSION` 改为已发布的目标版本（如未来的 `v0.2.10`）：
+**镜像安装升级 = 修改 `.env` 中的版本号 + `docker compose pull` + `docker compose up -d`。** 先查看目标版本的发布说明并备份，再将 `ICLOUD_MAIL_VERSION` 改为已发布的目标版本（如未来的 `v0.2.11`）：
 
 ```sh
 sh scripts/backup-local.sh

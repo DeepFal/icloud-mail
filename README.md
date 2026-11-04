@@ -36,7 +36,7 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build --wait
 docker compose -f compose.yaml -f compose.build.yaml ps
 ```
 
-如目标版本已在 GHCR 发布，也可使用 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres` 两个镜像：在 `.env` 设置 `ICLOUD_MAIL_VERSION=v0.2.10`，运行 `docker compose pull` 和 `docker compose up -d --wait`。两个镜像使用同一版本；首次发布完成前请使用上面的源码构建。镜像的 OCI 标签记录完整 commit、版本和源码仓库，核对方法见 [DELIVERY.md](DELIVERY.md#ghcr-镜像)。
+如目标版本已在 GHCR 发布，也可使用 `ghcr.io/deepfal/icloud-mail` 和 `ghcr.io/deepfal/icloud-mail-postgres` 两个镜像：在 `.env` 设置 `ICLOUD_MAIL_VERSION=v0.2.11`，运行 `docker compose pull` 和 `docker compose up -d --wait`。两个镜像使用同一版本；首次发布完成前请使用上面的源码构建。镜像的 OCI 标签记录完整 commit、版本和源码仓库，核对方法见 [DELIVERY.md](DELIVERY.md#ghcr-镜像)。
 
 使用示例配置时，管理入口为 `http://127.0.0.1:8788/admin/`，用户名为 `admin`。首次启动生成的管理路径和密码保存在容器的 keys 卷中：
 
