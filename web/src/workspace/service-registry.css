@@ -4,7 +4,7 @@
 .registry-error { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; color: var(--danger); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
 .registry-muted { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 18px; }
 
-.registry-workspace { display: grid; flex: 1 1 0; grid-template-columns: 208px minmax(0, 1fr); min-height: 0; margin-inline: calc(-1 * var(--pg-pad)); margin-bottom: calc(-1 * var(--pg-pad)); border-top: 1px solid var(--border); }
+.registry-workspace { display: grid; flex: 1 1 0; grid-template-columns: 208px minmax(0, 1fr); min-height: 0; margin-inline: calc(-1 * var(--content-pad)); margin-bottom: calc(-1 * var(--content-pad)); border-top: 1px solid var(--border); }
 .service-directory { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); }
 .service-directory-head { display: grid; gap: 4px; padding: 8px; }
 .service-directory-list { flex: 1 1 0; min-height: 0; padding: 0 8px 8px; overflow: auto; overscroll-behavior: contain; }
@@ -19,32 +19,32 @@
 .service-directory-item:disabled { cursor: not-allowed; opacity: .5; }
 
 .service-mailboxes { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.service-detail-heading { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 var(--pg-pad); border-bottom: 1px solid var(--border); }
+.service-detail-heading { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 var(--content-pad); border-bottom: 1px solid var(--border); }
 .service-detail-heading h2 { flex: 0 1 auto; margin: 0; font-size: 14px; line-height: 22px; font-weight: 600; }
 .service-detail-heading > .pg-muted { flex: 0 1 auto; font-size: 12px; }
 .service-description { flex: 1 1 auto; color: var(--text-secondary); font-size: 12px; }
 .service-detail-actions { display: flex; flex: 0 0 auto; gap: 4px; margin-left: auto; }
 
-.registry-filters { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; min-height: 44px; padding: 0 var(--pg-pad); }
+.registry-filters { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; min-height: 44px; padding: 0 var(--content-pad); }
 .registry-query { flex: 0 1 240px; min-width: 140px; }
 .registry-status { flex: 0 0 120px; width: 120px; }
 .registry-filter-select { flex: 0 1 140px; min-width: 100px; }
 .registry-result-count { margin-left: auto; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .registry-selection { background: var(--surface-subtle); }
 .registry-selection__count { color: var(--text); font-weight: 600; }
-.service-mailboxes > .registry-error, .service-mailboxes > .registry-muted { padding: 0 var(--pg-pad) 8px; }
-.registry-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px var(--pg-pad); color: var(--text-secondary); font-size: 13px; }
+.service-mailboxes > .registry-error, .service-mailboxes > .registry-muted { padding: 0 var(--content-pad) 8px; }
+.registry-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px var(--content-pad); color: var(--text-secondary); font-size: 13px; }
 .registry-empty p { margin: 0; max-width: 60ch; }
 
 .registry-table-wrap { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; border-top: 1px solid var(--border); }
 .registry-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .registry-table thead th { position: sticky; top: 0; z-index: 1; height: 32px; padding: 0 8px; background: var(--table-header); color: var(--text-secondary); font-size: 12px; font-weight: 500; text-align: left; border-bottom: 1px solid var(--border); }
 .registry-table td { height: 32px; padding: 0 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.registry-table th:first-child, .registry-table td:first-child { width: calc(var(--pg-pad) + 24px); padding-left: var(--pg-pad); }
+.registry-table th:first-child, .registry-table td:first-child { width: calc(var(--content-pad) + 24px); padding-left: var(--content-pad); }
 .registry-table th:nth-child(3) { width: 16%; }
 .registry-table th:nth-child(4) { width: 136px; }
-.registry-table th:last-child { width: 104px; padding-right: var(--pg-pad); }
-.registry-table td:last-child { padding-right: var(--pg-pad); }
+.registry-table th:last-child { width: 104px; padding-right: var(--content-pad); }
+.registry-table td:last-child { padding-right: var(--content-pad); }
 .registry-table tbody tr:hover { background: var(--row-hover); }
 .registry-table tr.selected { background: var(--selection-bg); }
 .registry-table .el-checkbox { height: 20px; }
@@ -54,7 +54,7 @@
 .registry-table tr:hover .registry-row-actions, .registry-row-actions:focus-within { opacity: 1; }
 @media (hover: none) and (pointer: coarse) { .registry-row-actions { opacity: 1; } }
 .registry-mobile-records { display: none; }
-.registry-pager { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; gap: 12px; min-height: 40px; padding: 0 var(--pg-pad); border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; }
+.registry-pager { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; gap: 12px; min-height: 40px; padding: 0 var(--content-pad); border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 12px; }
 
 .service-editor, .registry-batch-form { display: grid; gap: 12px; }
 .service-editor label, .registry-batch-form label { display: grid; gap: 4px; color: var(--text-secondary); font-size: 12px; }
@@ -79,7 +79,7 @@
   .registry-table-wrap { overflow: visible; }
   .registry-table { display: none; }
   .registry-mobile-records { display: block; }
-  .registry-mobile-record { padding: 12px var(--pg-pad); border-bottom: 1px solid var(--border); }
+  .registry-mobile-record { padding: 12px var(--content-pad); border-bottom: 1px solid var(--border); }
   .registry-mobile-record strong { font-weight: 500; overflow-wrap: anywhere; }
   .registry-mobile-record p { margin: 4px 0 8px 24px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
   .registry-mobile-record > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-left: 24px; }

@@ -77,7 +77,6 @@ import { useRouter } from "vue-router";
 
 import { updatePassword } from "../api/admin.js";
 import RequestAlert from "../components/RequestAlert.vue";
-import "../styles/pages.css";
 import { useAuth } from "../stores/auth.js";
 import { createActionLock } from "../utils/asyncState.js";
 import { utf8Length } from "../utils/format.js";

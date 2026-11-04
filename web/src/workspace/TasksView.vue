@@ -5,7 +5,6 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { apiRequest } from '../api/client.js'
 import { useAuth } from '../stores/auth.js'
 import { formatTime } from '../utils/format.js'
-import '../styles/pages.css'
 
 const auth = useAuth()
 const route = useRoute()

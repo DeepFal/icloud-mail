@@ -513,7 +513,6 @@ import { apiRequest } from "../api/client.js";
 import { getAliasPage, getAllAliases, getAllAccounts } from "../api/admin.js";
 import { mergePoolPageSelection, poolAliasSelectable, submitPoolEnrollment } from "../utils/poolEnrollment.js";
 import { useAuth } from "../stores/auth.js";
-import "../styles/pages.css";
 import RequestAlert from "../components/RequestAlert.vue";
 import { copyText } from "../utils/clipboard.js";
 import { createCheckboxDragSelection } from "../utils/checkboxDragSelection.js";
@@ -1003,7 +1002,7 @@ onMounted(() => refresh(true));
   flex-direction: column;
   min-width: 0;
   min-height: 160px;
-  margin-inline: calc(-1 * var(--pg-pad));
+  margin-inline: calc(-1 * var(--content-pad));
   border-block: 1px solid var(--border);
 }
 .pool-table-scroll:focus-visible {
@@ -1079,7 +1078,7 @@ onMounted(() => refresh(true));
   padding: 0;
 }
 .pool-page :deep(.pool-table .el-table__cell:first-child .cell) {
-  padding-left: var(--pg-pad);
+  padding-left: var(--content-pad);
 }
 .pool-page :deep(.pool-table .el-table__empty-text) {
   width: auto;

@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from "vue";
-import "../styles/pages.css";
 const props = defineProps({
   account: { type: Object, required: true },
   managementReady: Boolean,

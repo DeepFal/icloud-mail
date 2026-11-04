@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter } from "vue-router";
 import { useAuth } from "../stores/auth.js";
-import "../styles/pages.css";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
 import { getMailboxProfile, getServices, saveMailboxNote, saveRegistration, removeRegistration, registrationStates, registrationLabel } from "./registry-api.js";
 const props = defineProps({ modelValue: Boolean, aliasId: { type: [Number, String], default: "" }, serviceId: { type: [Number, String], default: "" } });

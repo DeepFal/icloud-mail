@@ -493,6 +493,10 @@
         <div
           v-if="loading && aliases.length === 0"
           class="data-panel loading-panel"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label="正在加载隐私地址列表"
         >
           <el-skeleton :rows="6" animated />
         </div>
@@ -778,7 +782,6 @@
 
         <EmptyState
           v-if="!loading && !loadError && aliases.length === 0"
-          class="empty-state--compact"
           level="h3"
           :title="appliedAliasQuery
             ? '没有匹配的隐私地址'
@@ -935,7 +938,6 @@ import SectionHeader from "../components/SectionHeader.vue";
 import SyncErrorLogDialog from "../components/SyncErrorLogDialog.vue";
 import SyncStatus from "../components/SyncStatus.vue";
 import AppleConnectionTags from "../components/AppleConnectionTags.vue";
-import "../styles/pages.css";
 import VirtualDataTable from "../components/VirtualDataTable.vue";
 import { useAuth } from "../stores/auth.js";
 import { setPageHeader } from "../stores/page.js";
@@ -2680,7 +2682,7 @@ onBeforeUnmount(() => {
 .account-alias-selected-count { color: var(--text); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .account-alias-search :deep(.el-button + .el-button) { margin-left: 0; }
 .account-alias-delete-button { margin-left: auto; }
-.account-detail .account-alias-table { flex: 0 0 auto; min-height: 0; margin-inline: calc(-1 * var(--pg-pad)); border: 0; border-block: 1px solid var(--border); border-radius: 0; }
+.account-detail .account-alias-table { flex: 0 0 auto; min-height: 0; }
 .alias-address > strong { font-family: var(--font-mono); font-size: 12px; }
 .alias-row-actions { gap: 8px; }
 

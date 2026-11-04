@@ -45,8 +45,6 @@
           :data="logs"
           row-key="id"
           fill-height
-          :row-height="32"
-          :header-height="32"
           :loading="loading"
         >
           <template #cell="{ column, row }">
@@ -120,7 +118,6 @@ import EmptyState from "../components/EmptyState.vue";
 import ListPagination from "../components/ListPagination.vue";
 import RequestAlert from "../components/RequestAlert.vue";
 import VirtualDataTable from "../components/VirtualDataTable.vue";
-import "../styles/pages.css";
 import { createLatestRequestGate } from "../utils/asyncState.js";
 import { formatTime } from "../utils/format.js";
 import { auditActionLabel } from "../utils/audit.js";

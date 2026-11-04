@@ -8,7 +8,6 @@ import { apiRequest } from "../api/client.js";
 import SearchableMailboxSelect from "../components/SearchableMailboxSelect.vue";
 import MailboxProfileDrawer from "./MailboxProfileDrawer.vue";
 import { getServices, createService, updateService, getServiceMailboxes, batchSaveRegistrations, registrationStates, registrationLabel } from "./registry-api.js";
-import "../styles/pages.css";
 import "./service-registry.css";
 const auth = useAuth(), route = useRoute(), router = useRouter();
 const services = ref([]), accounts = ref([]), groups = ref([]), aliases = ref([]);

@@ -59,21 +59,13 @@ html:has(.workspace-app), html:has(.workspace-app) body { height: 100%; overflow
 .workspace-app .workspace-topbar .theme-control { width: 28px; height: 28px; }
 .workspace-app .workspace-topbar .theme-control__icon { width: 16px; height: 16px; flex-basis: 16px; }
 
-/* Plain pages scroll inside the content pane; split pages (inbox) scroll per column. */
-.workspace-content { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; padding: 16px; overflow: auto; overscroll-behavior: contain; }
+/* Plain pages scroll inside the content pane; split pages (inbox) scroll per column.
+   --content-pad is the page gutter; full-bleed tables and bars bleed into it. */
+.workspace-content { --content-pad: 16px; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; padding: var(--content-pad); overflow: auto; overscroll-behavior: contain; }
 .workspace-content.is-split { padding: 0; overflow: hidden; }
 .workspace-content > * { min-width: 0; flex-shrink: 0; }
 .workspace-content.is-split > * { flex: 1 1 auto; min-height: 0; }
 .workspace-content > .virtual-list-page { flex: 1 0 auto; }
-.workspace-content .page-stack { gap: 12px; }
-.workspace-content .virtual-list-table { min-height: 240px; }
-.workspace-content .section-header { gap: 12px; min-height: 28px; }
-.workspace-content .section-header__title { font-size: 16px; line-height: 24px; font-weight: 600; }
-.workspace-content .section-block { gap: 12px; padding: 16px 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
-.workspace-content .section-block .section-header__title { font-size: 14px; line-height: 22px; }
-.workspace-content .data-panel, .workspace-content .form-panel { border-radius: 6px; box-shadow: none; }
-.workspace-content .form-panel { padding: 16px; }
-.workspace-content .list-pagination { gap: 8px; }
 .workspace-app .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
 .workspace-app .btn-primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 .workspace-app .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -86,10 +78,7 @@ html:has(.workspace-app), html:has(.workspace-app) body { height: 100%; overflow
   .workspace-menu { display: inline-grid; }
   .workspace-icon-button, .workspace-app .workspace-topbar .theme-control { width: 44px; height: 44px; }
   .workspace-topbar { flex-basis: 48px; padding: 0 4px; }
-  .workspace-content { padding: 12px; }
-  .workspace-content .section-header { align-items: center; flex-direction: row; flex-wrap: wrap; }
-  .workspace-content .section-header__actions { gap: 6px; }
-  .workspace-content .section-header__actions > .el-button:not(.is-circle) { flex: initial; }
+  .workspace-content { --content-pad: 12px; }
   .workspace-drawer { display: block; }
   .workspace-drawer .workspace-nav__item { height: 44px; }
   .workspace-drawer__inner { min-height: 100%; background: var(--surface); }

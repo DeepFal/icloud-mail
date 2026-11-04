@@ -356,8 +356,6 @@
           :data="aliases"
           row-key="id"
           fill-height
-          :row-height="32"
-          :header-height="32"
           :loading="loading"
         >
           <template #header-cell="{ column }">
@@ -558,7 +556,6 @@ import EmptyState from "../components/EmptyState.vue";
 import MailboxProfileDrawer from "../workspace/MailboxProfileDrawer.vue";
 import ListPagination from "../components/ListPagination.vue";
 import RequestAlert from "../components/RequestAlert.vue";
-import "../styles/pages.css";
 import SyncStatus from "../components/SyncStatus.vue";
 import VirtualDataTable from "../components/VirtualDataTable.vue";
 import { useAuth } from "../stores/auth.js";
@@ -1696,7 +1693,7 @@ onBeforeUnmount(() => {
 .alias-list-filter--group { flex: 0 1 140px; width: 140px; min-width: 100px; }
 .alias-list-filter--mail { flex: 0 0 104px; width: 104px; }
 
-.alias-selection-toolbar { display: flex; flex: 0 0 auto; align-items: center; gap: 4px 8px; min-height: 36px; margin-inline: calc(-1 * var(--pg-pad)); padding: 0 var(--pg-pad); background: var(--surface-subtle); border-block: 1px solid var(--border); }
+.alias-selection-toolbar { display: flex; flex: 0 0 auto; align-items: center; gap: 4px 8px; min-height: 36px; margin-inline: calc(-1 * var(--content-pad)); padding: 0 var(--content-pad); background: var(--surface-subtle); border-block: 1px solid var(--border); }
 .selection-count { color: var(--text); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .alias-selection-toolbar__spacer { flex: 1; }
 .alias-more-actions { display: grid; gap: 4px; }

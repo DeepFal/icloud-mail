@@ -3,7 +3,6 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { apiRequest } from "../api/client.js";
 import { useAuth } from "../stores/auth.js";
-import "../styles/pages.css";
 const emit=defineEmits(["change"]);const auth=useAuth();const items=ref([]),error=ref(""),busy=ref(""),open=ref(false);let controller,timer,disposed=false,loading=false;
 async function load(){if(loading||disposed)return;loading=true;controller=new AbortController();try{const result=await apiRequest('/pool/release-reviews',{signal:controller.signal});if(!disposed){items.value=result.items;error.value=""}}catch(cause){if(cause.name!=="AbortError"&&!disposed)error.value=cause.message||"待确认记录加载失败"}finally{loading=false}}
 async function resolve(item,unused){if(busy.value)return;try{await ElMessageBox.confirm(unused?'请确认该地址没有绑定任何业务。确认后它会重新进入可领取库存。':'确认该地址实际已经使用，继续保留给原项目，不再重新发放。',unused?'确认未使用并归还':'确认已使用',{confirmButtonText:unused?'确认未使用，归还':'确认已使用',cancelButtonText:'暂不处理',type:'warning'})}catch{return}busy.value=item.lease_id;try{await apiRequest(`/pool/release-reviews/${encodeURIComponent(item.lease_id)}/resolve`,{method:'POST',body:{unused},csrfToken:auth.state.csrfToken});ElMessage.success('分配记录已核实');await load();emit('change')}catch(cause){ElMessage.error(cause.message||'核实失败，请刷新记录')}finally{busy.value=''}}

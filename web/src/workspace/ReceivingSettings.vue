@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { ElMessage, ElMessageBox, ElSwitch } from "element-plus";
 import { apiRequest } from "../api/client.js";
 import { useAuth } from "../stores/auth.js";
-import "../styles/pages.css";
 
 const props = defineProps({ accountId: { type: [String, Number], required: true } });
 const auth = useAuth();

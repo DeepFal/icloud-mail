@@ -257,7 +257,6 @@ import {
   updateAccount,
 } from "../api/admin.js";
 import RequestAlert from "../components/RequestAlert.vue";
-import "../styles/pages.css";
 import { useAuth } from "../stores/auth.js";
 import {
   createActionLock,

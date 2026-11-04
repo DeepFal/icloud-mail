@@ -77,8 +77,8 @@ const props = defineProps({
   rowKey: { type: [String, Number, Symbol], default: "id" },
   height: { type: Number, default: 520 },
   fillHeight: { type: Boolean, default: false },
-  rowHeight: { type: Number, default: 56 },
-  headerHeight: { type: Number, default: 48 },
+  rowHeight: { type: Number, default: 32 },
+  headerHeight: { type: Number, default: 32 },
   loading: { type: Boolean, default: false },
 });
 
@@ -189,10 +189,28 @@ function handleResize({ width }) {
 :deep(.el-table-v2__header-cell) {
   color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
 }
 
-:deep(.el-table-v2__row-cell) {
-  padding: 0 12px;
+:deep(.el-table-v2__row-cell),
+:deep(.el-table-v2__header-cell) {
+  padding: 0 8px;
+}
+
+/* Edge cells line up with the page gutter exported by the shell. */
+:deep(.el-table-v2__row-cell:first-child),
+:deep(.el-table-v2__header-cell:first-child) {
+  padding-left: var(--content-pad, 12px);
+}
+
+:deep(.el-table-v2__row-cell:last-child),
+:deep(.el-table-v2__header-cell:last-child) {
+  padding-right: var(--content-pad, 12px);
+}
+
+:deep(.el-table-v2__empty) {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
 }
 </style>

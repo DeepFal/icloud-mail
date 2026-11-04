@@ -158,7 +158,6 @@ import VirtualDataTable from "../components/VirtualDataTable.vue";
 import AppleConnectionTags from "../components/AppleConnectionTags.vue";
 import AttentionReasons from "../components/AttentionReasons.vue";
 import { formatTime } from "../utils/format.js";
-import "../styles/pages.css";
 import { accountAttentionReasons, accountNeedsAttention } from "../utils/workspaceConnection.js";
 import { createLatestRequestGate } from "../utils/asyncState.js";
 import { createLiveRefresh } from "../utils/liveRefresh.js";
